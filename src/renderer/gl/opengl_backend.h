@@ -15,5 +15,7 @@ public:
     void BeginFrame(f32 dt);
     void DrawGeometry();
     void EndFrame(f32 dt);
+private:
+    u32 m_mainShader;
 };
 }

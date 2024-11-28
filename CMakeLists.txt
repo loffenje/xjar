@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 20)
 
 set(SRCS 
     src/glfw_platform.cpp
-    src/glfw_window.cpp
+    src/window.cpp
     src/texture_manager.cpp
     src/renderer/renderer_system.cpp
     src/renderer/vk/vulkan_backend.cpp

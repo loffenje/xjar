@@ -75,6 +75,7 @@ void RendererSystem::DrawFrame(f32 dt) {
     glm::mat4 proj = glm::perspective(glm::radians(g_state.zoom), static_cast<f32>(window.width) / static_cast<f32>(window.height), g_state.nearClip, g_state.farClip);
 
     g_backend->UpdateGlobalState(proj, g_state.view);
+    g_backend->DrawGeometry();
 
     g_backend->EndFrame(dt);
 }
