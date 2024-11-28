@@ -4,7 +4,13 @@ project(xjar)
 
 set(CMAKE_CXX_STANDARD 20)
 
-set(SRCS src/glfw_platform.cpp)
+set(SRCS 
+    src/glfw_platform.cpp
+    src/glfw_window.cpp
+    src/texture_manager.cpp
+    src/renderer/renderer_system.cpp
+    src/renderer/vk/vulkan_backend.cpp
+    src/renderer/gl/opengl_backend.cpp)
 
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
@@ -27,6 +33,7 @@ if (NOT TARGET glm::glm)
 endif()
 
 include_directories(${PROJECT_SOURCE_DIR})
+include_directories(${PROJECT_SOURCE_DIR}/src)
 include_directories(3rd)
 include_directories(3rd/glad/include)
 
