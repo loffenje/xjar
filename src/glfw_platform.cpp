@@ -1,7 +1,9 @@
-#include <GLFW/glfw3.h>
 #include <glad/glad.h>
+#include <GLFW/glfw3.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#include <glm/glm.hpp>
 
 int main() {
     glfwSetErrorCallback([](int error, const char *description) { fprintf(stderr, "Error: %s\n", description); });

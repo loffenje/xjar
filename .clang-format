@@ -27,7 +27,7 @@ Language: Cpp
 MaxEmptyLinesToKeep: '1'
 PointerAlignment: Right
 ReflowComments: 'false'
-SortIncludes: 'true'
+SortIncludes: 'false'
 SortUsingDeclarations: 'true'
 SpaceAfterLogicalNot: 'false'
 SpaceAfterTemplateKeyword: 'false'

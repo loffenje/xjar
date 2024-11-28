@@ -14,6 +14,11 @@ find_package(OpenGL REQUIRED)
 
 add_subdirectory(3rd/glfw)
 add_subdirectory(3rd/glad)
+add_subdirectory(3rd/glm)
+
+if (NOT TARGET glm::glm)
+    find_package(glm CONFIG REQUIRED)
+endif()
 
 include_directories(${PROJECT_SOURCE_DIR})
 include_directories(3rd)
@@ -21,8 +26,11 @@ include_directories(3rd/glad/include)
 
 add_executable(${PROJECT_NAME} ${SRCS})
 
-target_link_libraries(${PROJECT_NAME} glad)
-target_link_libraries(${PROJECT_NAME} glfw)
+target_link_libraries(${PROJECT_NAME}
+    PRIVATE glad          # Private means not exposed to dependents of xjar
+    PRIVATE glfw
+    PRIVATE glm::glm-header-only
+)
 
 set_target_properties(${PROJECT_NAME}
     PROPERTIES
