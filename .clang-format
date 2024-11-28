@@ -6,7 +6,7 @@ AlignOperands: 'true'
 AlignConsecutiveDeclarations: 'true'
 AllowShortBlocksOnASingleLine: 'false'
 AllowShortCaseLabelsOnASingleLine: 'true'
-AllowShortIfStatementsOnASingleLine: Always
+AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: 'false'
 AllowShortFunctionsOnASingleLine: 'false'
 AlwaysBreakBeforeMultilineStrings: 'false'

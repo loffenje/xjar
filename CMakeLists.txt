@@ -16,6 +16,12 @@ add_subdirectory(3rd/glfw)
 add_subdirectory(3rd/glad)
 add_subdirectory(3rd/glm)
 
+set(ASSIMP_BUILD_ZLIB ON CACHE BOOL "" FORCE)
+set(ASSIMP_BUILD_ASSIMP_TOOLS ON CACHE BOOL "" FORCE)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+
+add_subdirectory(3rd/assimp 3rd/assimp/build)
+
 if (NOT TARGET glm::glm)
     find_package(glm CONFIG REQUIRED)
 endif()
@@ -30,6 +36,8 @@ target_link_libraries(${PROJECT_NAME}
     PRIVATE glad          # Private means not exposed to dependents of xjar
     PRIVATE glfw
     PRIVATE glm::glm-header-only
+    PRIVATE assimp
+    PRIVATE zlibstatic
 )
 
 set_target_properties(${PROJECT_NAME}
