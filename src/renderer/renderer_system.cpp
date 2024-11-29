@@ -1,9 +1,14 @@
+#include "types.h"
 #include "renderer_system.h"
 #include "resource_types.h"
 
 #include "renderer_backend.h"
+
+#if RENDERER_BACKEND == OpenGL
 #include "gl/opengl_backend.h"
+#else
 #include "vk/vulkan_backend.h"
+#endif
 
 #include <glm/vec4.hpp>
 #include <glm/mat4x4.hpp>
@@ -30,15 +35,12 @@ RendererSystem &RendererSystem::Instance() {
     return system;
 }
 
-void RendererSystem::Startup(RendererBackendType backend) {
-    switch (backend) {
-        case RendererBackendType::OpenGL:
-            g_backend = new OpenGL_Backend;
-            break;
-        case RendererBackendType::Vulkan:
-            g_backend = new Vulkan_Backend;
-            break;
-    }
+void RendererSystem::Startup() {
+#if RENDERER_BACKEND == OpenGL
+    g_backend = new OpenGL_Backend;
+#else
+    g_backend = new Vulkan_Backend;
+#endif
 
     g_backend->OnInit();
 

@@ -36,7 +36,7 @@ if not exist "%BUILD_DIR%" (
 cd /d "%BUILD_DIR%" || exit /b 1
 
 echo Configuring CMake project for %CMAKE_BUILD_TYPE% mode...
-cmake -DCMAKE_BUILD_TYPE=%CMAKE_BUILD_TYPE% ..\..
+cmake -DCMAKE_BUILD_TYPE=%CMAKE_BUILD_TYPE% -DRENDERER_BACKEND=Vulkan ..\..
 
 echo Building the project in %CMAKE_BUILD_TYPE% mode...
 cmake --build . --config %CMAKE_BUILD_TYPE%

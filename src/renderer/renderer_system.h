@@ -6,11 +6,6 @@
 
 namespace xjar {
 
-enum class RendererBackendType {
-    Vulkan,
-    OpenGL
-};
-
 class RendererSystem final {
 public:
     static RendererSystem &Instance();
@@ -18,7 +13,7 @@ public:
     RendererSystem(const RendererSystem &) = delete;
     RendererSystem &operator=(const RendererSystem &) = delete;
 
-    void Startup(RendererBackendType backend);
+    void Startup();
     void OnResized(u32 width, u32 height);
     void DrawFrame(f32 dt);
     void Shutdown();

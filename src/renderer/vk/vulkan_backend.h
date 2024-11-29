@@ -1,5 +1,7 @@
 #include "renderer/renderer_backend.h"
 
+#include "vulkan_pipeline.h"
+
 namespace xjar {
 
 class Vulkan_Backend final : public RendererBackend {
