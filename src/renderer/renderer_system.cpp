@@ -71,15 +71,15 @@ void RendererSystem::OnResized(u32 width, u32 height) {
 }
 
 void RendererSystem::DrawFrame(f32 dt) {
-    g_backend->BeginFrame(dt);
+    
+    if (bool started = g_backend->BeginFrame(dt)) {
+        g_backend->BeginSwapchainPass();
 
-    Window   &window = GetWindow();
-    glm::mat4 proj = glm::perspective(glm::radians(g_state.zoom), static_cast<f32>(window.width) / static_cast<f32>(window.height), g_state.nearClip, g_state.farClip);
-
-    g_backend->UpdateGlobalState(proj, g_state.view);
-    g_backend->DrawGeometry();
-
-    g_backend->EndFrame(dt);
+        //g_backend->DrawGeometry(models);
+        
+        g_backend->EndSwapchainPass();
+        g_backend->EndFrame(dt);
+    }
 }
 
 }

@@ -25,6 +25,8 @@ elseif(RENDERER_BACKEND STREQUAL "Vulkan")
     find_package(Vulkan REQUIRED)
     set(RENDERER_SRC
         src/renderer/vk/vulkan_pipeline.cpp
+        src/renderer/vk/vulkan_swapchain.cpp
+        src/renderer/vk/vulkan_render_device.cpp
         src/renderer/vk/vulkan_backend.cpp)
 endif()
 
@@ -43,7 +45,7 @@ add_subdirectory(3rd/glfw)
 add_subdirectory(3rd/glm)
 
 set(ASSIMP_BUILD_ZLIB ON CACHE BOOL "" FORCE)
-set(ASSIMP_BUILD_ASSIMP_TOOLS ON CACHE BOOL "" FORCE)
+set(ASSIMP_BUILD_ASSIMP_TOOLS OFF CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 
 add_subdirectory(3rd/assimp 3rd/assimp/build)

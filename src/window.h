@@ -11,6 +11,7 @@ struct Window {
     std::string  title;
     void *       handle;
     void *       nativeHandle; // used for SDL,GLFW wrappers
+    b32          resized = false;
     b32          requestExit = false;
 };
 

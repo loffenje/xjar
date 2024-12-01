@@ -12,9 +12,9 @@ public:
     void UpdateGlobalState(const glm::mat4 &proj, const glm::mat4 &view) override;
     void CreateTexture(const void *pixels, Texture *texture) override;
     void DestroyTexture(Texture *texture) override;
-    void BeginFrame(f32 dt);
+    bool BeginFrame(f32 dt) override;
     void DrawGeometry();
-    void EndFrame(f32 dt);
+    void EndFrame(f32 dt) override;
 private:
     u32 m_mainShader;
 };

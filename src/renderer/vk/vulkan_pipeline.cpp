@@ -1,4 +1,5 @@
 #include "vulkan_pipeline.h"
+#include "vulkan_render_device.h"
 
 namespace xjar {
 
@@ -30,7 +31,8 @@ void Vulkan_Pipeline::Create(Vulkan_RenderDevice &rd, VkViewport viewport, VkRen
 	// filter, which pixels will be stored within this region, others will be discarded
 	VkRect2D scissor{};
 	scissor.offset = { 0, 0 };
-	scissor.extent = VkExtent2D{ .width = (u32)rd.framebufferWidth, .height = (u32)rd.framebufferHeight };
+    // TODO(vadym): fix it
+	scissor.extent = VkExtent2D{ .width = 1920, .height = 1080 };
 
 
 	VkPipelineViewportStateCreateInfo viewportState{};

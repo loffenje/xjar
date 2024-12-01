@@ -73,6 +73,7 @@ int main() {
         rendererSystem.DrawFrame(dtForFrame);
     }
 
+
     rendererSystem.Shutdown();
 
     glfwDestroyWindow(window);

@@ -6,6 +6,8 @@
 #define OpenGL 1
 #define Vulkan 2
 
+#define MAX_FRAMES_IN_FLIGHT 2
+
 using i16 = int16_t;
 using i32 = int32_t;
 using u8 = uint8_t;
