@@ -7,9 +7,10 @@
 
 #include <vector>
 #include <span>
-#include "vulkan_render_device.h"
 
 namespace xjar {
+
+struct Vulkan_RenderDevice;
 
 struct Vulkan_Pipeline {
     std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
@@ -28,15 +29,17 @@ struct Vulkan_Pipeline {
         Reset();
     }
 
-    void Create(Vulkan_RenderDevice &rd, VkViewport viewport, VkRenderPass renderPass);
+    void Create(Vulkan_RenderDevice *rd, VkRenderPass renderPass);
     void Destroy(VkDevice device);
     void Reset();
 
-    void SetVertexInput(VkVertexInputBindingDescription bindingDescription, std::span<VkVertexInputAttributeDescription> attributeDescriptions);
+    void SetVertexInput(const std::vector<VkVertexInputBindingDescription> &bindingDescriptions,
+            const std::vector<VkVertexInputAttributeDescription> &attributeDescriptions);
     void SetShaders(std::span<VkPipelineShaderStageCreateInfo> _shaderStages);
     void SetInputTopology(VkPrimitiveTopology topology);
     void SetPolygonMode(VkPolygonMode mode);
     void SetCullMode(VkCullModeFlags mode, VkFrontFace frontFace);
+    void SetPushConstants(VkPushConstantRange range, u32 count);
     void SetDescriptorSets(VkDescriptorSetLayout *layouts, u32 layoutsNum);
     void SetMultisamplingNone();
     void DisableBlending();
@@ -45,7 +48,7 @@ struct Vulkan_Pipeline {
     void EnableBlendingAdditive();
     void EnableBlendingAlphablend();
 
-    void Bind(VkCommandBuffer, VkPipelineBindPoint point);
+    void Bind(VkCommandBuffer, VkPipelineBindPoint point = VK_PIPELINE_BIND_POINT_GRAPHICS);
 };
 
 }

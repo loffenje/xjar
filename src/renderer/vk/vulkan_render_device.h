@@ -6,6 +6,7 @@
 
 #include <vector>
 #include <optional>
+#include <span>
 
 namespace xjar {
 
@@ -19,30 +20,40 @@ struct QueueFamily {
 };
 
 struct SwapChainSupportDetails {
-	VkSurfaceCapabilitiesKHR		caps;
-	std::vector<VkSurfaceFormatKHR> formats;
-	std::vector<VkPresentModeKHR>	presentModes;
+    VkSurfaceCapabilitiesKHR        caps;
+    std::vector<VkSurfaceFormatKHR> formats;
+    std::vector<VkPresentModeKHR>   presentModes;
 };
 
 struct Vulkan_RenderDevice {
-    VkInstance                      instance;
-	VkDevice						device;
-	VkPhysicalDevice				physicalDevice;
-	VkQueue							graphicsQueue;
-	VkQueue							presentQueue;
-    VkSurfaceKHR                    surface;
-	VkCommandPool					commandPool;
+    VkInstance       instance;
+    VkDevice         device;
+    VkPhysicalDevice physicalDevice;
+    VkQueue          graphicsQueue;
+    VkQueue          presentQueue;
+    VkSurfaceKHR     surface;
+    VkCommandPool    commandPool;
 };
 
-QueueFamily FindQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface);
+QueueFamily             FindQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface);
 SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice device, VkSurfaceKHR surface);
 
 Vulkan_RenderDevice CreateRenderDevice(const char *appName, const char *engineName);
-void DestroyRenderDevice(Vulkan_RenderDevice &rd);
+void                DestroyRenderDevice(Vulkan_RenderDevice *rd);
 
-void CreateImage(Vulkan_RenderDevice &rd,
-    VkImageCreateInfo imageInfo,
-    VkMemoryPropertyFlags properties,
-    VkImage &image,
-    VkDeviceMemory &imageMemory);
+void CreateImage(Vulkan_RenderDevice  *rd,
+                 VkImageCreateInfo     imageInfo,
+                 VkMemoryPropertyFlags properties,
+                 VkImage              &image,
+                 VkDeviceMemory       &imageMemory);
+
+void CreateBuffer(Vulkan_RenderDevice  *rd,
+                  VkDeviceSize          size,
+                  VkBufferUsageFlags    usage,
+                  VkMemoryPropertyFlags properties,
+                  VkBuffer             &buffer,
+                  VkDeviceMemory       &bufferMemory);
+
+VkShaderModule CreateShaderModule(Vulkan_RenderDevice *rd, std::span<char> code);
+
 }

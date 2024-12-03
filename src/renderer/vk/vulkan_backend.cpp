@@ -1,5 +1,6 @@
 #include "vulkan_backend.h"
 #include "vulkan_swapchain.h"
+#include "vulkan_model.h"
 #include <glm/mat4x4.hpp>
 #include <array>
 #include "window.h"
@@ -44,8 +45,8 @@ void Vulkan_Backend::OnDestroy() {
         m_commandBuffers.data());
     m_commandBuffers.clear();
 
-    DestroySwapchain(m_swapchain.get(), m_renderDevice);
-    DestroyRenderDevice(m_renderDevice);
+    DestroySwapchain(m_swapchain.get(), &m_renderDevice);
+    DestroyRenderDevice(&m_renderDevice);
 }
 void Vulkan_Backend::OnResized(u32 width, u32 height) {
     auto &window = GetWindow();
@@ -71,19 +72,19 @@ void Vulkan_Backend::RecreateSwapchain() {
     vkDeviceWaitIdle(m_renderDevice.device);
 
     if (m_swapchain == nullptr) {
-        m_swapchain = CreateSwapchain(m_renderDevice, extent, nullptr);
+        m_swapchain = CreateSwapchain(&m_renderDevice, extent, nullptr);
     } else {
         std::shared_ptr<Vulkan_Swapchain> oldSwapchain = std::move(m_swapchain);
-        m_swapchain = CreateSwapchain(m_renderDevice, extent, oldSwapchain);
-        DestroySwapchain(oldSwapchain.get(), m_renderDevice);
+        m_swapchain = CreateSwapchain(&m_renderDevice, extent, oldSwapchain);
+        DestroySwapchain(oldSwapchain.get(), &m_renderDevice);
     }
 }
 
-bool Vulkan_Backend::BeginFrame(f32 dt) {
-    VkResult result = AcquireNextImage(m_swapchain.get(), m_renderDevice, &m_currentImageIndex);
+void *Vulkan_Backend::BeginFrame() {
+    VkResult result = AcquireNextImage(m_swapchain.get(), &m_renderDevice, &m_currentImageIndex);
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
         RecreateSwapchain();
-        return false;
+        return nullptr;
     }
 
     if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
@@ -91,29 +92,27 @@ bool Vulkan_Backend::BeginFrame(f32 dt) {
         exit(1);
     }
 
-    auto cmdbuf = GetCurrentCommandBuffer();
+    auto *cmdbuf = GetCurrentCommandBuffer();
 
     VkCommandBufferBeginInfo beginInfo {};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-    if (vkBeginCommandBuffer(cmdbuf, &beginInfo) != VK_SUCCESS) {
+    if (vkBeginCommandBuffer(*cmdbuf, &beginInfo) != VK_SUCCESS) {
         fprintf(stderr, "Failed to begin recording\n");
         exit(1);
     }
 
-    return true;
+    return cmdbuf;
 }
 
-void Vulkan_Backend::DrawGeometry() {
-}
-void Vulkan_Backend::EndFrame(f32 dt) {
-    auto cmdbuf = GetCurrentCommandBuffer();
-    if (vkEndCommandBuffer(cmdbuf) != VK_SUCCESS) {
+void Vulkan_Backend::EndFrame() {
+    auto *cmdbuf = GetCurrentCommandBuffer();
+    if (vkEndCommandBuffer(*cmdbuf) != VK_SUCCESS) {
         fprintf(stderr, "Failed to end recording\n");
         exit(1);
     }
 
-    VkResult result = SubmitCommandBuffers(m_swapchain.get(), m_renderDevice, &cmdbuf, &m_currentImageIndex);
+    VkResult result = SubmitCommandBuffers(m_swapchain.get(), &m_renderDevice, cmdbuf, &m_currentImageIndex);
     auto &window = GetWindow();
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || window.resized) {
         window.resized = false;
@@ -126,8 +125,14 @@ void Vulkan_Backend::EndFrame(f32 dt) {
     m_currentFrameIndex = (m_currentFrameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
+void Vulkan_Backend::LoadModel(Model &model) {
+    Vulkan_Model *vkmodel = new Vulkan_Model;
+    vkmodel->Init(&m_renderDevice, model.vertices);
+    model.handle = vkmodel;
+}
+
 void Vulkan_Backend::BeginSwapchainPass() {
-    auto cmdbuf = GetCurrentCommandBuffer();
+    auto *cmdbuf = GetCurrentCommandBuffer();
 
     VkRenderPassBeginInfo passInfo {};
     passInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -143,7 +148,7 @@ void Vulkan_Backend::BeginSwapchainPass() {
     passInfo.clearValueCount = static_cast<u32>(clearValues.size());
     passInfo.pClearValues = clearValues.data();
 
-    vkCmdBeginRenderPass(cmdbuf, &passInfo, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBeginRenderPass(*cmdbuf, &passInfo, VK_SUBPASS_CONTENTS_INLINE);
 
     VkViewport viewport {};
     viewport.x = 0.0f;
@@ -154,18 +159,26 @@ void Vulkan_Backend::BeginSwapchainPass() {
     viewport.maxDepth = 1.0f;
     VkRect2D scissor {{0, 0}, m_swapchain->swapchainExtent};
 
-    vkCmdSetViewport(cmdbuf, 0, 1, &viewport);
-    vkCmdSetScissor(cmdbuf, 0, 1, &scissor);
+    vkCmdSetViewport(*cmdbuf, 0, 1, &viewport);
+    vkCmdSetScissor(*cmdbuf, 0, 1, &scissor);
 }
 
 void Vulkan_Backend::EndSwapchainPass() {
-    auto cmdbuf = GetCurrentCommandBuffer();
+    auto *cmdbuf = GetCurrentCommandBuffer();
 
-    vkCmdEndRenderPass(cmdbuf);
+    vkCmdEndRenderPass(*cmdbuf);
 }
 
-VkCommandBuffer Vulkan_Backend::GetCurrentCommandBuffer() const {
-    return m_commandBuffers[m_currentFrameIndex];
+VkCommandBuffer *Vulkan_Backend::GetCurrentCommandBuffer() {
+    return &m_commandBuffers[m_currentFrameIndex];
+}
+
+void *Vulkan_Backend::GetSwapchainRenderPass() {
+    return &m_swapchain->renderPass;
+}
+
+void *Vulkan_Backend::GetRenderDevice() {
+    return &m_renderDevice;
 }
 
 }

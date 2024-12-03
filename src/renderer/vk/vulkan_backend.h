@@ -18,16 +18,19 @@ public:
     void UpdateGlobalState(const glm::mat4 &proj, const glm::mat4 &view) override;
     void CreateTexture(const void *pixels, Texture *texture) override;
     void DestroyTexture(Texture *texture) override;
-    bool BeginFrame(f32 dt) override;
-    void DrawGeometry();
-    void EndFrame(f32 dt) override;
-    
+    void *BeginFrame() override;
+    void EndFrame() override;
+    void LoadModel(Model &model) override; 
     void BeginSwapchainPass() override;
     void EndSwapchainPass() override;
+    
+    void *GetSwapchainRenderPass() override;
+    void *GetRenderDevice() override;
+
 private:
     void CreateBuffers();
     void RecreateSwapchain();
-    VkCommandBuffer GetCurrentCommandBuffer() const;
+    VkCommandBuffer *GetCurrentCommandBuffer();
 
     Vulkan_RenderDevice                 m_renderDevice;
     std::unique_ptr<Vulkan_Swapchain>   m_swapchain;

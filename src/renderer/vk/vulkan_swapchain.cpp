@@ -7,6 +7,7 @@
 #endif
 
 #include "window.h"
+#include "vulkan_render_device.h"
 
 #include <array>
 #include <algorithm>
@@ -50,7 +51,7 @@ VkExtent2D ChooseSwapExtent(GLFWwindow *window, VkExtent2D windowExtent, const V
     }
 }
 
-void CreateImageViews(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice &rd) {
+void CreateImageViews(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice *rd) {
     swapchain->imageViews.resize(swapchain->images.size());
 
     for (size_t i = 0; i < swapchain->images.size(); i++) {
@@ -66,7 +67,7 @@ void CreateImageViews(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice &rd) {
         viewInfo.subresourceRange.baseArrayLayer = 0;
         viewInfo.subresourceRange.layerCount = 1;
 
-        if (vkCreateImageView(rd.device, &viewInfo, nullptr, &swapchain->imageViews[i]) !=
+        if (vkCreateImageView(rd->device, &viewInfo, nullptr, &swapchain->imageViews[i]) !=
             VK_SUCCESS) {
             fprintf(stderr, "Failed to create image view\n");
             exit(1);
@@ -98,9 +99,9 @@ static VkFormat FindDepthFormat(VkPhysicalDevice physicalDevice) {
                                VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 }
 
-void CreateRenderPass(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice &rd) {
+void CreateRenderPass(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice *rd) {
     VkAttachmentDescription depthAttachment {};
-    depthAttachment.format = FindDepthFormat(rd.physicalDevice);
+    depthAttachment.format = FindDepthFormat(rd->physicalDevice);
     depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
     depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -155,14 +156,14 @@ void CreateRenderPass(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice &rd) {
     renderPassInfo.dependencyCount = 1;
     renderPassInfo.pDependencies = &dependency;
 
-    if (vkCreateRenderPass(rd.device, &renderPassInfo, nullptr, &swapchain->renderPass) != VK_SUCCESS) {
+    if (vkCreateRenderPass(rd->device, &renderPassInfo, nullptr, &swapchain->renderPass) != VK_SUCCESS) {
         fprintf(stderr, "Failed to create render pass\n");
         exit(1);
     }
 }
 
-void CreateDepthResources(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice &rd) {
-    VkFormat depthFormat = FindDepthFormat(rd.physicalDevice);
+void CreateDepthResources(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice *rd) {
+    VkFormat depthFormat = FindDepthFormat(rd->physicalDevice);
     swapchain->depthFormat = depthFormat;
 
     u32 imageCount = swapchain->images.size();
@@ -206,14 +207,14 @@ void CreateDepthResources(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice &rd) 
         viewInfo.subresourceRange.baseArrayLayer = 0;
         viewInfo.subresourceRange.layerCount = 1;
 
-        if (vkCreateImageView(rd.device, &viewInfo, nullptr, &swapchain->depthImageViews[i]) != VK_SUCCESS) {
+        if (vkCreateImageView(rd->device, &viewInfo, nullptr, &swapchain->depthImageViews[i]) != VK_SUCCESS) {
             fprintf(stderr, "Failed to create texture image view\n");
             exit(1);
         }
     }
 }
 
-void CreateFramebuffers(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice &rd) {
+void CreateFramebuffers(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice *rd) {
     u32 imageCount = swapchain->images.size();
     swapchain->framebuffers.resize(imageCount);
     for (u32 i = 0; i < imageCount; i++) {
@@ -230,7 +231,7 @@ void CreateFramebuffers(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice &rd) {
         framebufferInfo.layers = 1;
 
         if (vkCreateFramebuffer(
-                rd.device,
+                rd->device,
                 &framebufferInfo,
                 nullptr,
                 &swapchain->framebuffers[i]) != VK_SUCCESS) {
@@ -240,7 +241,7 @@ void CreateFramebuffers(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice &rd) {
     }
 }
 
-void CreateSync(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice &rd) {
+void CreateSync(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice *rd) {
     u32 imageCount = swapchain->images.size();
 
     swapchain->imageAvailableSems.resize(MAX_FRAMES_IN_FLIGHT);
@@ -256,19 +257,19 @@ void CreateSync(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice &rd) {
     fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        if (vkCreateSemaphore(rd.device, &semaphoreInfo, nullptr, &swapchain->imageAvailableSems[i]) !=
+        if (vkCreateSemaphore(rd->device, &semaphoreInfo, nullptr, &swapchain->imageAvailableSems[i]) !=
                 VK_SUCCESS ||
-            vkCreateSemaphore(rd.device, &semaphoreInfo, nullptr, &swapchain->renderFinishedSems[i]) !=
+            vkCreateSemaphore(rd->device, &semaphoreInfo, nullptr, &swapchain->renderFinishedSems[i]) !=
                 VK_SUCCESS ||
-            vkCreateFence(rd.device, &fenceInfo, nullptr, &swapchain->inFlightFences[i]) != VK_SUCCESS) {
+            vkCreateFence(rd->device, &fenceInfo, nullptr, &swapchain->inFlightFences[i]) != VK_SUCCESS) {
             fprintf(stderr, "Failed to create sync object\n");
             exit(1);
         }
     }
 }
 
-std::unique_ptr<Vulkan_Swapchain> CreateSwapchain(Vulkan_RenderDevice &rd, VkExtent2D windowExtent, std::shared_ptr<Vulkan_Swapchain> prev) {
-    SwapChainSupportDetails swapChainSupport = QuerySwapChainSupport(rd.physicalDevice, rd.surface);
+std::unique_ptr<Vulkan_Swapchain> CreateSwapchain(Vulkan_RenderDevice *rd, VkExtent2D windowExtent, std::shared_ptr<Vulkan_Swapchain> prev) {
+    SwapChainSupportDetails swapChainSupport = QuerySwapChainSupport(rd->physicalDevice, rd->surface);
 
     auto swapchain = std::make_unique<Vulkan_Swapchain>();
 
@@ -288,7 +289,7 @@ std::unique_ptr<Vulkan_Swapchain> CreateSwapchain(Vulkan_RenderDevice &rd, VkExt
 
     VkSwapchainCreateInfoKHR createInfo {};
     createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-    createInfo.surface = rd.surface;
+    createInfo.surface = rd->surface;
     createInfo.minImageCount = imageCount;
     createInfo.imageFormat = surfaceFormat.format;
     createInfo.imageColorSpace = surfaceFormat.colorSpace;
@@ -296,7 +297,7 @@ std::unique_ptr<Vulkan_Swapchain> CreateSwapchain(Vulkan_RenderDevice &rd, VkExt
     createInfo.imageArrayLayers = 1;
     createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-    QueueFamily families = FindQueueFamilies(rd.physicalDevice, rd.surface);
+    QueueFamily families = FindQueueFamilies(rd->physicalDevice, rd->surface);
     uint32_t    queueFamilyIndices[] = {families.graphicsFamily.value(), families.presentFamily.value()};
 
     if (families.graphicsFamily != families.presentFamily) {
@@ -315,14 +316,14 @@ std::unique_ptr<Vulkan_Swapchain> CreateSwapchain(Vulkan_RenderDevice &rd, VkExt
     createInfo.clipped = VK_TRUE;
     createInfo.oldSwapchain = prev == nullptr ? VK_NULL_HANDLE : prev->swapchain;
 
-    if (vkCreateSwapchainKHR(rd.device, &createInfo, nullptr, &swapchain->swapchain) != VK_SUCCESS) {
+    if (vkCreateSwapchainKHR(rd->device, &createInfo, nullptr, &swapchain->swapchain) != VK_SUCCESS) {
         fprintf(stderr, "Failed to create a swapchain\n");
         exit(EXIT_FAILURE);
     }
 
-    vkGetSwapchainImagesKHR(rd.device, swapchain->swapchain, &imageCount, nullptr);
+    vkGetSwapchainImagesKHR(rd->device, swapchain->swapchain, &imageCount, nullptr);
     swapchain->images.resize(imageCount);
-    vkGetSwapchainImagesKHR(rd.device, swapchain->swapchain, &imageCount, swapchain->images.data());
+    vkGetSwapchainImagesKHR(rd->device, swapchain->swapchain, &imageCount, swapchain->images.data());
 
     CreateImageViews(swapchain.get(), rd);
     CreateRenderPass(swapchain.get(), rd);
@@ -333,43 +334,43 @@ std::unique_ptr<Vulkan_Swapchain> CreateSwapchain(Vulkan_RenderDevice &rd, VkExt
     return swapchain;
 }
 
-void DestroySwapchain(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice &rd) {
+void DestroySwapchain(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice *rd) {
     for (auto imageView : swapchain->imageViews) {
-        vkDestroyImageView(rd.device, imageView, nullptr);
+        vkDestroyImageView(rd->device, imageView, nullptr);
     }
     swapchain->imageViews.clear();
 
-    vkDestroySwapchainKHR(rd.device, swapchain->swapchain, nullptr);
+    vkDestroySwapchainKHR(rd->device, swapchain->swapchain, nullptr);
 
     for (int i = 0; i < swapchain->depthImages.size(); i++) {
-        vkDestroyImageView(rd.device, swapchain->depthImageViews[i], nullptr);
-        vkDestroyImage(rd.device, swapchain->depthImages[i], nullptr);
-        vkFreeMemory(rd.device, swapchain->depthImageMemories[i], nullptr);
+        vkDestroyImageView(rd->device, swapchain->depthImageViews[i], nullptr);
+        vkDestroyImage(rd->device, swapchain->depthImages[i], nullptr);
+        vkFreeMemory(rd->device, swapchain->depthImageMemories[i], nullptr);
     }
 
     for (auto framebuffer : swapchain->framebuffers) {
-        vkDestroyFramebuffer(rd.device, framebuffer, nullptr);
+        vkDestroyFramebuffer(rd->device, framebuffer, nullptr);
     }
 
-    vkDestroyRenderPass(rd.device, swapchain->renderPass, nullptr);
+    vkDestroyRenderPass(rd->device, swapchain->renderPass, nullptr);
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        vkDestroySemaphore(rd.device, swapchain->renderFinishedSems[i], nullptr);
-        vkDestroySemaphore(rd.device, swapchain->imageAvailableSems[i], nullptr);
-        vkDestroyFence(rd.device, swapchain->inFlightFences[i], nullptr);
+        vkDestroySemaphore(rd->device, swapchain->renderFinishedSems[i], nullptr);
+        vkDestroySemaphore(rd->device, swapchain->imageAvailableSems[i], nullptr);
+        vkDestroyFence(rd->device, swapchain->inFlightFences[i], nullptr);
     }
 }
 
-VkResult AcquireNextImage(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice &rd, u32 *imageIndex) {
+VkResult AcquireNextImage(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice *rd, u32 *imageIndex) {
     vkWaitForFences(
-        rd.device,
+        rd->device,
         1,
         &swapchain->inFlightFences[swapchain->currentFrame],
         VK_TRUE,
         UINT64_MAX);
 
     VkResult result = vkAcquireNextImageKHR(
-        rd.device,
+        rd->device,
         swapchain->swapchain,
         UINT64_MAX,
         swapchain->imageAvailableSems[swapchain->currentFrame],
@@ -379,9 +380,9 @@ VkResult AcquireNextImage(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice &rd, 
     return result;
 }
 
-VkResult SubmitCommandBuffers(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice &rd, const VkCommandBuffer *buffers, u32 *imageIndex) {
+VkResult SubmitCommandBuffers(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice *rd, const VkCommandBuffer *buffers, u32 *imageIndex) {
     if (swapchain->imagesInFlight[*imageIndex] != VK_NULL_HANDLE) {
-        vkWaitForFences(rd.device, 1, &swapchain->imagesInFlight[*imageIndex], VK_TRUE, UINT64_MAX);
+        vkWaitForFences(rd->device, 1, &swapchain->imagesInFlight[*imageIndex], VK_TRUE, UINT64_MAX);
     }
 
     swapchain->imagesInFlight[*imageIndex] = swapchain->inFlightFences[swapchain->currentFrame];
@@ -402,8 +403,8 @@ VkResult SubmitCommandBuffers(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice &
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
-    vkResetFences(rd.device, 1, &swapchain->inFlightFences[swapchain->currentFrame]);
-    if (vkQueueSubmit(rd.graphicsQueue, 1, &submitInfo, swapchain->inFlightFences[swapchain->currentFrame]) !=
+    vkResetFences(rd->device, 1, &swapchain->inFlightFences[swapchain->currentFrame]);
+    if (vkQueueSubmit(rd->graphicsQueue, 1, &submitInfo, swapchain->inFlightFences[swapchain->currentFrame]) !=
         VK_SUCCESS) {
         fprintf(stderr, "Failed to submit to graphics queue\n");
         exit(1);
@@ -420,7 +421,7 @@ VkResult SubmitCommandBuffers(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice &
     presentInfo.pSwapchains = swapChains;
     presentInfo.pImageIndices = imageIndex;
 
-    VkResult result = vkQueuePresentKHR(rd.presentQueue, &presentInfo);
+    VkResult result = vkQueuePresentKHR(rd->presentQueue, &presentInfo);
     swapchain->currentFrame = (swapchain->currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 
     return result;

@@ -8,6 +8,7 @@
 #include "gl/opengl_backend.h"
 #else
 #include "vk/vulkan_backend.h"
+#include "vk/vulkan_test_feature.h"
 #endif
 
 #include <glm/vec4.hpp>
@@ -40,9 +41,13 @@ void RendererSystem::Startup() {
     g_backend = new OpenGL_Backend;
 #else
     g_backend = new Vulkan_Backend;
+    
+    testFeature = new Vulkan_TestFeature;
 #endif
 
     g_backend->OnInit();
+
+    testFeature->Init(g_backend->GetRenderDevice(), g_backend->GetSwapchainRenderPass());
 
     g_state.nearClip = 0.1f;
     g_state.farClip = 1000.0f;
@@ -58,6 +63,10 @@ void RendererSystem::SetView(const glm::mat4 &view) {
     g_state.view = view;
 }
 
+void RendererSystem::LoadModel(Model &model) {
+    g_backend->LoadModel(model);
+}
+
 void RendererSystem::CreateTexture(const void *pixels, Texture *texture) {
     g_backend->CreateTexture(pixels, texture);
 }
@@ -70,16 +79,20 @@ void RendererSystem::OnResized(u32 width, u32 height) {
     g_backend->OnResized(width, height);
 }
 
-void RendererSystem::DrawFrame(f32 dt) {
-    
-    if (bool started = g_backend->BeginFrame(dt)) {
-        g_backend->BeginSwapchainPass();
+void RendererSystem::BeginDefaultPass() {
+    g_backend->BeginSwapchainPass();
+}
 
-        //g_backend->DrawGeometry(models);
-        
-        g_backend->EndSwapchainPass();
-        g_backend->EndFrame(dt);
-    }
+void RendererSystem::EndDefaultPass() {
+    g_backend->EndSwapchainPass();
+}
+
+void *RendererSystem::BeginFrame() {
+    return g_backend->BeginFrame();
+}
+
+void RendererSystem::EndFrame() {
+    g_backend->EndFrame();
 }
 
 }

@@ -10,6 +10,8 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include "renderer/renderer_system.h"
+#include "world.h"
+#include "renderer/test_feature.h"
 #include "window.h"
 
 int main() {
@@ -61,7 +63,20 @@ int main() {
                                        glm::vec3(0.0f, 0.0f, -1.0f),
                                        glm::vec3(0.0f, 1.0f, 0.0f)));
 
+
+    auto &world = xjar::World::Instance();
+    xjar::Entity *triangle = world.CreateEntity();
+    triangle->model.vertices = {
+      {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+      {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+      {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}};
+    
+    triangle->model.localTransform = glm::rotate(glm::mat4(1.0f), 45.0f, glm::vec3(0.0f, 0.0f, 1.0f));
+
     f32 frameTime = static_cast<f32>(glfwGetTime());
+
+    rendererSystem.LoadModel(triangle->model);
+
     while (!glfwWindowShouldClose(window)) {
         f32 currentTime = glfwGetTime();
         f32 dtForFrame = currentTime - static_cast<f32>(frameTime);
@@ -70,7 +85,15 @@ int main() {
 
         glfwPollEvents();
 
-        rendererSystem.DrawFrame(dtForFrame);
+        if (auto *cmdbuf = rendererSystem.BeginFrame()) {
+            rendererSystem.BeginDefaultPass();
+           
+            rendererSystem.testFeature->DrawEntities(cmdbuf, {triangle});
+
+            rendererSystem.EndDefaultPass();
+
+            rendererSystem.EndFrame();
+        }
     }
 
 

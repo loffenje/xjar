@@ -17,6 +17,11 @@ struct Vertex {
     glm::vec2 texcoord;
 };
 
+struct Vertex2D {
+    glm::vec2 position;
+    glm::vec3 color;
+};
+
 struct Mesh {
     u32                 id;
     std::vector<Vertex> vertices;
@@ -24,9 +29,11 @@ struct Mesh {
 };
 
 struct Model {
-    Texture           texture;
-    glm::mat4         localTransform;
-    std::vector<Mesh> meshes;
+    Texture                 texture;
+    glm::mat4               localTransform;
+    std::vector<Mesh>       meshes;
+    std::vector<Vertex2D>   vertices;
+    void *                  handle;
 };
 
 }

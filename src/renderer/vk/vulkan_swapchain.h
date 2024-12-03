@@ -6,9 +6,9 @@
 #include <memory>
 #include <vector>
 
-#include "vulkan_render_device.h"
-
 namespace xjar {
+
+struct Vulkan_RenderDevice;
 
 struct Vulkan_Swapchain {
     VkFormat                          imageFormat;
@@ -29,13 +29,12 @@ struct Vulkan_Swapchain {
     std::vector<VkFence>              inFlightFences;
     std::vector<VkFence>              imagesInFlight;
     size_t                            currentFrame = 0;
-
 };
 
-std::unique_ptr<Vulkan_Swapchain> CreateSwapchain(Vulkan_RenderDevice &rd, VkExtent2D windowExtent, std::shared_ptr<Vulkan_Swapchain> prev);
-void DestroySwapchain(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice &rd);
+std::unique_ptr<Vulkan_Swapchain> CreateSwapchain(Vulkan_RenderDevice *rd, VkExtent2D windowExtent, std::shared_ptr<Vulkan_Swapchain> prev);
+void                              DestroySwapchain(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice *rd);
 
-VkResult AcquireNextImage(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice &rd, u32 *imageIndex);
-VkResult SubmitCommandBuffers(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice &rd, const VkCommandBuffer *buffers, u32 *imageIndex);
+VkResult AcquireNextImage(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice *rd, u32 *imageIndex);
+VkResult SubmitCommandBuffers(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice *rd, const VkCommandBuffer *buffers, u32 *imageIndex);
 
 }

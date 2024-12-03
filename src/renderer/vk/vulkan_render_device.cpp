@@ -34,9 +34,9 @@ const std::vector<const char *> VALIDATION_LAYERS = {
 const std::vector<const char *> DEVICE_EXTENSIONS = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
-static u32 FindMemoryType(Vulkan_RenderDevice &rd, u32 typeFilter, VkMemoryPropertyFlags properties) {
+static u32 FindMemoryType(Vulkan_RenderDevice *rd, u32 typeFilter, VkMemoryPropertyFlags properties) {
     VkPhysicalDeviceMemoryProperties memProperties;
-    vkGetPhysicalDeviceMemoryProperties(rd.physicalDevice, &memProperties);
+    vkGetPhysicalDeviceMemoryProperties(rd->physicalDevice, &memProperties);
 
     for (u32 i = 0; i < memProperties.memoryTypeCount; i++) {
         if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
@@ -152,7 +152,7 @@ static bool CheckDeviceExtSupport(VkPhysicalDevice device) {
     return requiredExtensions.empty();
 }
 
-static bool IsDeviceSuitable(Vulkan_RenderDevice &rd, VkPhysicalDevice device) {
+static bool IsDeviceSuitable(VkSurfaceKHR surface, VkPhysicalDevice device) {
     VkPhysicalDeviceProperties deviceProperties;
     vkGetPhysicalDeviceProperties(device, &deviceProperties);
 
@@ -162,7 +162,7 @@ static bool IsDeviceSuitable(Vulkan_RenderDevice &rd, VkPhysicalDevice device) {
     bool result = deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU &&
                   deviceFeatures.geometryShader;
 
-    QueueFamily families = FindQueueFamilies(device, rd.surface);
+    QueueFamily families = FindQueueFamilies(device, surface);
 
     result = result && families.IsComplete();
 
@@ -172,7 +172,7 @@ static bool IsDeviceSuitable(Vulkan_RenderDevice &rd, VkPhysicalDevice device) {
 
     bool swapChainCompatible = false;
     if (extensionsSupported) {
-        SwapChainSupportDetails swapChainSupport = QuerySwapChainSupport(device, rd.surface);
+        SwapChainSupportDetails swapChainSupport = QuerySwapChainSupport(device, surface);
         swapChainCompatible = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
     }
 
@@ -184,31 +184,31 @@ static bool IsDeviceSuitable(Vulkan_RenderDevice &rd, VkPhysicalDevice device) {
     return result;
 }
 
-static void PickPhysicalDevice(Vulkan_RenderDevice &rd) {
+static void PickPhysicalDevice(Vulkan_RenderDevice *rd) {
     u32 deviceCount;
-    vkEnumeratePhysicalDevices(rd.instance, &deviceCount, nullptr);
+    vkEnumeratePhysicalDevices(rd->instance, &deviceCount, nullptr);
     if (deviceCount == 0) {
         fprintf(stderr, "Failed to find GPU with Vulkan support\n");
         exit(EXIT_FAILURE);
     }
 
     std::vector<VkPhysicalDevice> devices(deviceCount);
-    vkEnumeratePhysicalDevices(rd.instance, &deviceCount, devices.data());
+    vkEnumeratePhysicalDevices(rd->instance, &deviceCount, devices.data());
 
     for (const auto &device : devices) {
-        if (IsDeviceSuitable(rd, device)) {
-            rd.physicalDevice = device;
+        if (IsDeviceSuitable(rd->surface, device)) {
+            rd->physicalDevice = device;
             break;
         }
     }
 
-    if (rd.physicalDevice == VK_NULL_HANDLE) {
+    if (rd->physicalDevice == VK_NULL_HANDLE) {
         fprintf(stderr, "Failed to find a suitable GPU\n");
         exit(EXIT_FAILURE);
     }
 }
 
-static void InitDebugMessenger(Vulkan_RenderDevice &rd) {
+static void InitDebugMessenger(Vulkan_RenderDevice *rd) {
     VkDebugUtilsMessengerCreateInfoEXT createInfo {};
     createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
     createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
@@ -216,7 +216,7 @@ static void InitDebugMessenger(Vulkan_RenderDevice &rd) {
     createInfo.pfnUserCallback = DebugCallback;
     createInfo.pUserData = nullptr; // Optional
 
-    if (CreateDebugUtilsMessengerEXT(rd.instance, &createInfo, nullptr, &g_debugMessenger) != VK_SUCCESS) {
+    if (CreateDebugUtilsMessengerEXT(rd->instance, &createInfo, nullptr, &g_debugMessenger) != VK_SUCCESS) {
         fprintf(stderr, "Failed to set up debug messenger!\n");
         exit(EXIT_FAILURE);
     }
@@ -261,20 +261,20 @@ std::vector<const char *> GetRequiredExtensions() {
     return extensions;
 }
 
-static void CreateSurface(Vulkan_RenderDevice &rd) {
+static void CreateSurface(Vulkan_RenderDevice *rd) {
     VkWin32SurfaceCreateInfoKHR createInfo {};
     createInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
     createInfo.hwnd = (HWND)GetWindow().nativeHandle;
     createInfo.hinstance = GetModuleHandle(nullptr);
 
-    if (vkCreateWin32SurfaceKHR(rd.instance, &createInfo, nullptr, &rd.surface) != VK_SUCCESS) {
+    if (vkCreateWin32SurfaceKHR(rd->instance, &createInfo, nullptr, &rd->surface) != VK_SUCCESS) {
         fprintf(stderr, "Failed to create surface\n");
         exit(EXIT_FAILURE);
     }
 }
 
-static void CreateDevice(Vulkan_RenderDevice &rd) {
-    QueueFamily families = FindQueueFamilies(rd.physicalDevice, rd.surface);
+static void CreateDevice(Vulkan_RenderDevice *rd) {
+    QueueFamily families = FindQueueFamilies(rd->physicalDevice, rd->surface);
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
     std::set<u32>                        uniqueQueueFamilies = {
@@ -310,53 +310,53 @@ static void CreateDevice(Vulkan_RenderDevice &rd) {
         createInfo.enabledLayerCount = 0;
     }
 
-    if (vkCreateDevice(rd.physicalDevice, &createInfo, nullptr, &rd.device) != VK_SUCCESS) {
+    if (vkCreateDevice(rd->physicalDevice, &createInfo, nullptr, &rd->device) != VK_SUCCESS) {
         fprintf(stderr, "Failed to create a logical device\n");
         exit(EXIT_FAILURE);
     }
 
-    vkGetDeviceQueue(rd.device, families.graphicsFamily.value(), 0, &rd.graphicsQueue);
-    vkGetDeviceQueue(rd.device, families.presentFamily.value(), 0, &rd.presentQueue);
+    vkGetDeviceQueue(rd->device, families.graphicsFamily.value(), 0, &rd->graphicsQueue);
+    vkGetDeviceQueue(rd->device, families.presentFamily.value(), 0, &rd->presentQueue);
 }
 
-void CreateCommandPool(Vulkan_RenderDevice &rd) {
-    QueueFamily families = FindQueueFamilies(rd.physicalDevice, rd.surface);
+void CreateCommandPool(Vulkan_RenderDevice *rd) {
+    QueueFamily families = FindQueueFamilies(rd->physicalDevice, rd->surface);
 
     VkCommandPoolCreateInfo poolInfo {};
     poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT; // alow to be rerecorded individually
     poolInfo.queueFamilyIndex = families.graphicsFamily.value();
 
-    if (vkCreateCommandPool(rd.device, &poolInfo, nullptr, &rd.commandPool) != VK_SUCCESS) {
+    if (vkCreateCommandPool(rd->device, &poolInfo, nullptr, &rd->commandPool) != VK_SUCCESS) {
         fprintf(stderr, "Failed to create command pool.\n");
         exit(EXIT_FAILURE);
     }
 }
 
-void CreateImage(Vulkan_RenderDevice  &rd,
+void CreateImage(Vulkan_RenderDevice  *rd,
                  VkImageCreateInfo imageInfo,
                  VkMemoryPropertyFlags properties,
                  VkImage              &image,
                  VkDeviceMemory       &imageMemory) {
-    if (vkCreateImage(rd.device, &imageInfo, nullptr, &image) != VK_SUCCESS) {
+    if (vkCreateImage(rd->device, &imageInfo, nullptr, &image) != VK_SUCCESS) {
         fprintf(stderr, "Failed to create image\n");
         exit(1);
     }
 
     VkMemoryRequirements memRequirements;
-    vkGetImageMemoryRequirements(rd.device, image, &memRequirements);
+    vkGetImageMemoryRequirements(rd->device, image, &memRequirements);
 
     VkMemoryAllocateInfo allocInfo {};
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize = memRequirements.size;
     allocInfo.memoryTypeIndex = FindMemoryType(rd, memRequirements.memoryTypeBits, properties);
 
-    if (vkAllocateMemory(rd.device, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
+    if (vkAllocateMemory(rd->device, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
         fprintf(stderr, "Failed to allocate memory\n");
         exit(1);
     }
 
-    if (vkBindImageMemory(rd.device, image, imageMemory, 0) != VK_SUCCESS) {
+    if (vkBindImageMemory(rd->device, image, imageMemory, 0) != VK_SUCCESS) {
         fprintf(stderr, "Failed to bind image memory\n");
         exit(1);
     }
@@ -394,27 +394,72 @@ Vulkan_RenderDevice CreateRenderDevice(const char *appName, const char *engineNa
     }
 
     if (ENABLE_VALIDATION) {
-        InitDebugMessenger(rd);
+        InitDebugMessenger(&rd);
     }
 
-    CreateSurface(rd);
-    PickPhysicalDevice(rd);
-    CreateDevice(rd);
-    CreateCommandPool(rd);
+    CreateSurface(&rd);
+    PickPhysicalDevice(&rd);
+    CreateDevice(&rd);
+    CreateCommandPool(&rd);
 
     return rd;
 }
 
-void DestroyRenderDevice(Vulkan_RenderDevice &rd) {
-    vkDestroyCommandPool(rd.device, rd.commandPool, nullptr);
-    vkDestroyDevice(rd.device, nullptr);
+void DestroyRenderDevice(Vulkan_RenderDevice *rd) {
+    vkDestroyCommandPool(rd->device, rd->commandPool, nullptr);
+    vkDestroyDevice(rd->device, nullptr);
 
     if (ENABLE_VALIDATION) {
-        DestroyDebugUtilsMessengerEXT(rd.instance, g_debugMessenger, nullptr);
+        DestroyDebugUtilsMessengerEXT(rd->instance, g_debugMessenger, nullptr);
     }
 
-    vkDestroySurfaceKHR(rd.instance, rd.surface, nullptr);
-    vkDestroyInstance(rd.instance, nullptr);
+    vkDestroySurfaceKHR(rd->instance, rd->surface, nullptr);
+    vkDestroyInstance(rd->instance, nullptr);
+}
+
+void CreateBuffer(Vulkan_RenderDevice *rd, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties,
+	VkBuffer &buffer, VkDeviceMemory &bufferMemory) {
+
+	VkBufferCreateInfo bufferInfo{};
+	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bufferInfo.size = size;
+	bufferInfo.usage = usage;
+	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+	if (vkCreateBuffer(rd->device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
+		fprintf(stderr, "Failed to create buffer!\n");
+		exit(EXIT_FAILURE);
+	}
+
+	VkMemoryRequirements memRequirements;
+	vkGetBufferMemoryRequirements(rd->device, buffer, &memRequirements);
+
+	VkMemoryAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	allocInfo.allocationSize = memRequirements.size;
+	allocInfo.memoryTypeIndex = FindMemoryType(rd, memRequirements.memoryTypeBits, properties);
+
+	if (vkAllocateMemory(rd->device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
+		fprintf(stderr, "Failed to allocate memory for buffer\n");
+		exit(EXIT_FAILURE);
+	}
+
+	vkBindBufferMemory(rd->device, buffer, bufferMemory, 0);
+}
+
+VkShaderModule CreateShaderModule(Vulkan_RenderDevice *rd, std::span<char> code) {
+	VkShaderModuleCreateInfo createInfo{};
+	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+	createInfo.codeSize = code.size();
+	createInfo.pCode = reinterpret_cast<const u32 *>(code.data());
+
+	VkShaderModule shaderModule;
+	if (vkCreateShaderModule(rd->device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
+		fprintf(stderr, "Failed to create shader module.\n");
+		exit(EXIT_FAILURE);
+	}
+
+	return shaderModule;
 }
 
 }

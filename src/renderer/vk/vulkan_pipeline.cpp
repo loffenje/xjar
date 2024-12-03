@@ -27,21 +27,15 @@ void Vulkan_Pipeline::Reset() {
 	shaderStages.clear();
 }
 
-void Vulkan_Pipeline::Create(Vulkan_RenderDevice &rd, VkViewport viewport, VkRenderPass renderPass) {
-	// filter, which pixels will be stored within this region, others will be discarded
-	VkRect2D scissor{};
-	scissor.offset = { 0, 0 };
-    // TODO(vadym): fix it
-	scissor.extent = VkExtent2D{ .width = 1920, .height = 1080 };
-
+void Vulkan_Pipeline::Create(Vulkan_RenderDevice *rd, VkRenderPass renderPass) {
 
 	VkPipelineViewportStateCreateInfo viewportState{};
 	viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
 	viewportState.pNext = nullptr;
 	viewportState.viewportCount = 1;
 	viewportState.scissorCount = 1;
-	viewportState.pViewports = &viewport;
-	viewportState.pScissors = &scissor;
+	viewportState.pViewports = nullptr;
+	viewportState.pScissors = nullptr;
 
 	VkPipelineColorBlendStateCreateInfo colorBlending{};
 	colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
@@ -51,7 +45,7 @@ void Vulkan_Pipeline::Create(Vulkan_RenderDevice &rd, VkViewport viewport, VkRen
 	colorBlending.attachmentCount = 1;
 	colorBlending.pAttachments = &colorBlendAttachment;
 
-	if (vkCreatePipelineLayout(rd.device,
+	if (vkCreatePipelineLayout(rd->device,
 		&pipelineLayoutInfo,
 		nullptr,
 		&pipelineLayout
@@ -75,16 +69,16 @@ void Vulkan_Pipeline::Create(Vulkan_RenderDevice &rd, VkViewport viewport, VkRen
 	graphicsPipelineInfo.renderPass = renderPass;
 	graphicsPipelineInfo.subpass = 0;
 
-	VkDynamicState state[] = { VK_DYNAMIC_STATE_SCISSOR };
+	VkDynamicState state[] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
 
 	VkPipelineDynamicStateCreateInfo dynamicInfo{};
 	dynamicInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
 	dynamicInfo.pDynamicStates = &state[0];
-	dynamicInfo.dynamicStateCount = 1;
+	dynamicInfo.dynamicStateCount = 2;
 
 	graphicsPipelineInfo.pDynamicState = &dynamicInfo;
 
-	if (vkCreateGraphicsPipelines(rd.device, VK_NULL_HANDLE, 1, &graphicsPipelineInfo, nullptr, &pipeline) != VK_SUCCESS) {
+	if (vkCreateGraphicsPipelines(rd->device, VK_NULL_HANDLE, 1, &graphicsPipelineInfo, nullptr, &pipeline) != VK_SUCCESS) {
 		fprintf(stderr, "failed to create pipeline\n");
 		pipeline = VK_NULL_HANDLE;
 	}
@@ -115,11 +109,16 @@ void Vulkan_Pipeline::SetInputTopology(VkPrimitiveTopology topology) {
 	inputAssembly.primitiveRestartEnable = VK_FALSE;
 }
 
-void Vulkan_Pipeline::SetVertexInput(VkVertexInputBindingDescription bindingDescription,
-	std::span<VkVertexInputAttributeDescription> attributeDescriptions) {
-	vertexInputInfo.vertexBindingDescriptionCount = 1;
+void Vulkan_Pipeline::SetPushConstants(VkPushConstantRange range, u32 count) {
+    pipelineLayoutInfo.pPushConstantRanges = &range;
+    pipelineLayoutInfo.pushConstantRangeCount = count;
+}
+
+void Vulkan_Pipeline::SetVertexInput(const std::vector<VkVertexInputBindingDescription> &bindingDescriptions,
+            const std::vector<VkVertexInputAttributeDescription> &attributeDescriptions) {
+	vertexInputInfo.vertexBindingDescriptionCount = static_cast<u32>(bindingDescriptions.size());
 	vertexInputInfo.vertexAttributeDescriptionCount = static_cast<u32>(attributeDescriptions.size());
-	vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+	vertexInputInfo.pVertexBindingDescriptions = bindingDescriptions.data();
 	vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 }
 

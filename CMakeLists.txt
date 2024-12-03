@@ -27,12 +27,15 @@ elseif(RENDERER_BACKEND STREQUAL "Vulkan")
         src/renderer/vk/vulkan_pipeline.cpp
         src/renderer/vk/vulkan_swapchain.cpp
         src/renderer/vk/vulkan_render_device.cpp
+        src/renderer/vk/vulkan_test_feature.cpp
+        src/renderer/vk/vulkan_model.cpp
         src/renderer/vk/vulkan_backend.cpp)
 endif()
 
 set(SRCS 
     src/glfw_platform.cpp
     src/window.cpp
+    src/world.cpp
     src/texture_manager.cpp
     src/renderer/renderer_system.cpp
     ${RENDERER_SRC})
