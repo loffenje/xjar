@@ -47,12 +47,24 @@ void CreateImage(Vulkan_RenderDevice  *rd,
                  VkImage              &image,
                  VkDeviceMemory       &imageMemory);
 
+void CopyImage2Image(VkCommandBuffer cmdbuf, VkImage src, VkImage dest, VkExtent2D srcExtent, VkExtent2D destExtent);
+
 void CreateBuffer(Vulkan_RenderDevice  *rd,
                   VkDeviceSize          size,
                   VkBufferUsageFlags    usage,
                   VkMemoryPropertyFlags properties,
                   VkBuffer             &buffer,
                   VkDeviceMemory       &bufferMemory);
+
+VkCommandBuffer BeginImmediateCommands(Vulkan_RenderDevice *rd);
+void            EndImmediateCommands(Vulkan_RenderDevice *rd, VkCommandBuffer cmdbuf);
+
+void TransitionImageLayout(Vulkan_RenderDevice *rd,
+                           VkImage              image,
+                           VkFormat             format,
+                           VkImageLayout        oldLayout,
+                           VkImageLayout        newLayout,
+                           u32                  layerCount = 1);
 
 VkShaderModule CreateShaderModule(Vulkan_RenderDevice *rd, std::span<char> code);
 

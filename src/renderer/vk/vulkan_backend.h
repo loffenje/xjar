@@ -24,6 +24,7 @@ public:
     void BeginSwapchainPass() override;
     void EndSwapchainPass() override;
     
+    void ClearColor(f32 r, f32 g, f32 b, f32 a) override;
     void *GetSwapchainRenderPass() override;
     void *GetRenderDevice() override;
 

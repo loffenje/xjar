@@ -21,6 +21,8 @@ public:
     virtual void UpdateGlobalState(const glm::mat4 &proj, const glm::mat4 &view) {}
     virtual void DrawGeometry() {}
 
+    virtual void ClearColor(f32 r, f32 g, f32 b, f32 a) {}
+
     virtual void BeginSwapchainPass() {}
     virtual void EndSwapchainPass() {}
 

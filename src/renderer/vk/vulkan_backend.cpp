@@ -163,6 +163,21 @@ void Vulkan_Backend::BeginSwapchainPass() {
     vkCmdSetScissor(*cmdbuf, 0, 1, &scissor);
 }
 
+void Vulkan_Backend::ClearColor(f32 r, f32 g, f32 b, f32 a) {
+   VkClearColorValue clearValue;
+    
+   auto *cmdbuf = GetCurrentCommandBuffer();
+
+    VkImageSubresourceRange subImage {};
+    subImage.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    subImage.baseMipLevel = 0;
+    subImage.levelCount = VK_REMAINING_MIP_LEVELS;
+    subImage.baseArrayLayer = 0;
+    subImage.layerCount = VK_REMAINING_ARRAY_LAYERS;
+
+
+}
+
 void Vulkan_Backend::EndSwapchainPass() {
     auto *cmdbuf = GetCurrentCommandBuffer();
 

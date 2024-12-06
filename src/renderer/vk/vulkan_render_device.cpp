@@ -79,6 +79,110 @@ QueueFamily FindQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface) {
     return families;
 }
 
+VkCommandBuffer BeginImmediateCommands(Vulkan_RenderDevice *rd) {
+    VkCommandBufferAllocateInfo allocInfo {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool = rd->commandPool;
+    allocInfo.commandBufferCount = 1;
+
+    VkCommandBuffer commandBuffer;
+    vkAllocateCommandBuffers(rd->device, &allocInfo, &commandBuffer);
+
+    VkCommandBufferBeginInfo beginInfo {};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+    return commandBuffer;
+}
+
+void EndImmediateCommands(Vulkan_RenderDevice *rd, VkCommandBuffer cmdbuf) {
+    vkEndCommandBuffer(cmdbuf);
+
+    VkSubmitInfo submitInfo {};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &cmdbuf;
+
+    vkQueueSubmit(rd->graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(rd->graphicsQueue);
+
+    vkFreeCommandBuffers(rd->device, rd->commandPool, 1, &cmdbuf);
+}
+
+static bool HasStencilComponent(VkFormat format) {
+	return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
+}
+
+void TransitionImageLayout(Vulkan_RenderDevice *rd, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, u32 layerCount) {
+	VkCommandBuffer cmdbuf = BeginImmediateCommands(rd);
+
+	VkImageMemoryBarrier barrier{};
+	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	barrier.oldLayout = oldLayout;
+	barrier.newLayout = newLayout;
+
+	//set to ignored since there is no barrier queue family ownership transfer
+	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.image = image;
+	barrier.subresourceRange.baseMipLevel = 0;
+	barrier.subresourceRange.levelCount = 1;
+	barrier.subresourceRange.baseArrayLayer = 0;
+	barrier.subresourceRange.layerCount = layerCount;
+
+	if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+
+		if (HasStencilComponent(format)) {
+			barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+		}
+	}
+	else {
+		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	}
+
+	VkPipelineStageFlags sourceStage;
+	VkPipelineStageFlags destinationStage;
+
+	if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+		barrier.srcAccessMask = 0;
+		barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+		sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+		destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+	}
+	else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+		sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+
+	}
+	else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+		barrier.srcAccessMask = 0;
+		barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+		sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+		destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+	}
+	else {
+		fprintf(stderr, "Unsupported layout transition\n");
+		exit(EXIT_FAILURE);
+	}
+
+	vkCmdPipelineBarrier(cmdbuf, sourceStage, destinationStage,
+		0,
+		0, nullptr,
+		0, nullptr,
+		1, &barrier);
+
+	EndImmediateCommands(rd, cmdbuf);
+}
+
 SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice device, VkSurfaceKHR surface) {
     SwapChainSupportDetails details;
 
@@ -334,7 +438,7 @@ void CreateCommandPool(Vulkan_RenderDevice *rd) {
 }
 
 void CreateImage(Vulkan_RenderDevice  *rd,
-                 VkImageCreateInfo imageInfo,
+                 VkImageCreateInfo     imageInfo,
                  VkMemoryPropertyFlags properties,
                  VkImage              &image,
                  VkDeviceMemory       &imageMemory) {
@@ -417,49 +521,85 @@ void DestroyRenderDevice(Vulkan_RenderDevice *rd) {
     vkDestroyInstance(rd->instance, nullptr);
 }
 
-void CreateBuffer(Vulkan_RenderDevice *rd, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties,
-	VkBuffer &buffer, VkDeviceMemory &bufferMemory) {
+void CopyImage2Image(VkCommandBuffer cmdbuf, VkImage src, VkImage dest, VkExtent2D srcExtent, VkExtent2D destExtent) {
+    
+    VkImageBlit2 blitRegion {};
+    blitRegion.sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2;
+    blitRegion.pNext = nullptr;
+  
+    blitRegion.srcOffsets[1].x = srcExtent.width;
+    blitRegion.srcOffsets[1].y = srcExtent.height;
+    blitRegion.srcOffsets[1].z = 1;
 
-	VkBufferCreateInfo bufferInfo{};
-	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bufferInfo.size = size;
-	bufferInfo.usage = usage;
-	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    blitRegion.dstOffsets[1].x = destExtent.width;
+    blitRegion.dstOffsets[1].y = destExtent.height;
+    blitRegion.dstOffsets[1].z = 1;
 
-	if (vkCreateBuffer(rd->device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
-		fprintf(stderr, "Failed to create buffer!\n");
-		exit(EXIT_FAILURE);
-	}
+    blitRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    blitRegion.srcSubresource.baseArrayLayer = 0;
+    blitRegion.srcSubresource.layerCount = 1;
+    blitRegion.srcSubresource.mipLevel = 0;
 
-	VkMemoryRequirements memRequirements;
-	vkGetBufferMemoryRequirements(rd->device, buffer, &memRequirements);
+    blitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    blitRegion.dstSubresource.baseArrayLayer = 0;
+    blitRegion.dstSubresource.layerCount = 1;
+    blitRegion.dstSubresource.mipLevel = 0;
 
-	VkMemoryAllocateInfo allocInfo{};
-	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	allocInfo.allocationSize = memRequirements.size;
-	allocInfo.memoryTypeIndex = FindMemoryType(rd, memRequirements.memoryTypeBits, properties);
+    VkBlitImageInfo2 blitInfo {};
+    blitInfo.sType = VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2;
+    blitInfo.pNext = nullptr;
+    blitInfo.dstImage = dest;
+    blitInfo.dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    blitInfo.srcImage = src;
+    blitInfo.srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    blitInfo.filter = VK_FILTER_LINEAR;
+    blitInfo.regionCount = 1;
+    blitInfo.pRegions = &blitRegion;
 
-	if (vkAllocateMemory(rd->device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
-		fprintf(stderr, "Failed to allocate memory for buffer\n");
-		exit(EXIT_FAILURE);
-	}
+    vkCmdBlitImage2(cmdbuf, &blitInfo);
+}
 
-	vkBindBufferMemory(rd->device, buffer, bufferMemory, 0);
+void CreateBuffer(Vulkan_RenderDevice *rd, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer &buffer, VkDeviceMemory &bufferMemory) {
+    VkBufferCreateInfo bufferInfo {};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = size;
+    bufferInfo.usage = usage;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    if (vkCreateBuffer(rd->device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
+        fprintf(stderr, "Failed to create buffer!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    VkMemoryRequirements memRequirements;
+    vkGetBufferMemoryRequirements(rd->device, buffer, &memRequirements);
+
+    VkMemoryAllocateInfo allocInfo {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memRequirements.size;
+    allocInfo.memoryTypeIndex = FindMemoryType(rd, memRequirements.memoryTypeBits, properties);
+
+    if (vkAllocateMemory(rd->device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
+        fprintf(stderr, "Failed to allocate memory for buffer\n");
+        exit(EXIT_FAILURE);
+    }
+
+    vkBindBufferMemory(rd->device, buffer, bufferMemory, 0);
 }
 
 VkShaderModule CreateShaderModule(Vulkan_RenderDevice *rd, std::span<char> code) {
-	VkShaderModuleCreateInfo createInfo{};
-	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-	createInfo.codeSize = code.size();
-	createInfo.pCode = reinterpret_cast<const u32 *>(code.data());
+    VkShaderModuleCreateInfo createInfo {};
+    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    createInfo.codeSize = code.size();
+    createInfo.pCode = reinterpret_cast<const u32 *>(code.data());
 
-	VkShaderModule shaderModule;
-	if (vkCreateShaderModule(rd->device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
-		fprintf(stderr, "Failed to create shader module.\n");
-		exit(EXIT_FAILURE);
-	}
+    VkShaderModule shaderModule;
+    if (vkCreateShaderModule(rd->device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
+        fprintf(stderr, "Failed to create shader module.\n");
+        exit(EXIT_FAILURE);
+    }
 
-	return shaderModule;
+    return shaderModule;
 }
 
 }

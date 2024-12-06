@@ -8,6 +8,8 @@ namespace xjar {
 struct Window {
     u32          width;
     u32          height;
+    u32          framebuffer_width;
+    u32          framebuffer_height;
     std::string  title;
     void *       handle;
     void *       nativeHandle; // used for SDL,GLFW wrappers

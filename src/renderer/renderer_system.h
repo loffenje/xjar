@@ -1,6 +1,5 @@
 #pragma once
 
-#include <glm/mat4x4.hpp>
 #include "resource_types.h"
 #include "renderer_types.h"
 
@@ -22,7 +21,6 @@ public:
     void BeginDefaultPass();
     void EndDefaultPass();
     void Shutdown();
-    void SetView(const glm::mat4 &view);
     void LoadModel(Model &model);
     void CreateTexture(const void *pixels, Texture *texture);
     void DestroyTexture(Texture *texture);

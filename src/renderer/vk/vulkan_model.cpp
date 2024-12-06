@@ -3,7 +3,7 @@
 
 namespace xjar {
 
-void Vulkan_Model::Init(Vulkan_RenderDevice *_rd, const std::vector<Vertex2D> &vertices) {
+void Vulkan_Model::Init(Vulkan_RenderDevice *_rd, const std::vector<Vertex3D> &vertices) {
     rd = _rd;
 
     vertexCount = static_cast<u32>(vertices.size());

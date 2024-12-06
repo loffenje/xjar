@@ -21,14 +21,6 @@ namespace xjar {
 
 static RendererBackend *g_backend = nullptr;
 
-struct RendererState {
-    glm::mat4 view;
-    f32       nearClip;
-    f32       farClip;
-    f32       zoom;
-};
-
-static RendererState g_state;
 
 RendererSystem &RendererSystem::Instance() {
     static RendererSystem system;
@@ -48,19 +40,11 @@ void RendererSystem::Startup() {
     g_backend->OnInit();
 
     testFeature->Init(g_backend->GetRenderDevice(), g_backend->GetSwapchainRenderPass());
-
-    g_state.nearClip = 0.1f;
-    g_state.farClip = 1000.0f;
-    g_state.zoom = 45.0f;
 }
 
 void RendererSystem::Shutdown() {
     g_backend->OnDestroy();
     delete g_backend;
-}
-
-void RendererSystem::SetView(const glm::mat4 &view) {
-    g_state.view = view;
 }
 
 void RendererSystem::LoadModel(Model &model) {

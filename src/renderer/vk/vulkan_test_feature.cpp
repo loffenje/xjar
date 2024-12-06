@@ -54,19 +54,19 @@ void Vulkan_TestFeature::CreatePipeline() {
 
     std::vector<VkVertexInputBindingDescription> bindingDescriptions(1);
     bindingDescriptions[0].binding = 0;
-    bindingDescriptions[0].stride = sizeof(Vertex2D);
+    bindingDescriptions[0].stride = sizeof(Vertex3D);
     bindingDescriptions[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
     std::vector<VkVertexInputAttributeDescription> attributeDescriptions(2);
     attributeDescriptions[0].binding = 0;
     attributeDescriptions[0].location = 0;
-    attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
-    attributeDescriptions[0].offset = offsetof(Vertex2D, position);
+    attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attributeDescriptions[0].offset = offsetof(Vertex3D, position);
 
     attributeDescriptions[1].binding = 0;
     attributeDescriptions[1].location = 1;
     attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-    attributeDescriptions[1].offset = offsetof(Vertex2D, color);
+    attributeDescriptions[1].offset = offsetof(Vertex3D, color);
 
     m_pipeline.SetInputTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
     m_pipeline.SetPolygonMode(VK_POLYGON_MODE_FILL);
@@ -83,20 +83,15 @@ void Vulkan_TestFeature::CreatePipeline() {
     vkDestroyShaderModule(m_renderDevice->device, vertShaderModule, nullptr);
 }
 
-void Vulkan_TestFeature::DrawEntities(void *cmdbuf, std::initializer_list<Entity *> entities) {
+void Vulkan_TestFeature::DrawEntities(void *cmdbuf, const Camera &camera, std::initializer_list<Entity *> entities) {
     VkCommandBuffer *vkcmdbuf = (VkCommandBuffer *)cmdbuf;
     m_pipeline.Bind(*vkcmdbuf);
 
-    glm::vec3 camPos = {0.f, 0.f, -2.f};
     for (Entity *ent : entities) {
         Vulkan_Model *vkmodel = (Vulkan_Model *)ent->model.handle;
-        glm::mat4     view = glm::translate(glm::mat4(1.f), camPos);
-        glm::mat4     projection = glm::perspective(glm::radians(70.f), 1920.f / 1080.f, 0.1f, 200.0f);
-        //calculate final mesh matrix
-        glm::mat4 mvp = projection * view * ent->model.localTransform;
 
         PushConstantData constants;
-        constants.transform = mvp;
+        constants.transform = camera.projection * camera.view * ent->model.localTransform;
 
         //upload the matrix to the GPU via push constants
         vkCmdPushConstants(*vkcmdbuf, m_pipeline.pipelineLayout,

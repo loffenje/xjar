@@ -17,8 +17,8 @@ struct Vertex {
     glm::vec2 texcoord;
 };
 
-struct Vertex2D {
-    glm::vec2 position;
+struct Vertex3D {
+    glm::vec3 position;
     glm::vec3 color;
 };
 
@@ -32,7 +32,7 @@ struct Model {
     Texture                 texture;
     glm::mat4               localTransform;
     std::vector<Mesh>       meshes;
-    std::vector<Vertex2D>   vertices;
+    std::vector<Vertex3D>   vertices;
     void *                  handle;
 };
 

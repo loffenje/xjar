@@ -15,7 +15,7 @@ struct Vulkan_Model {
     u32                  vertexCount;
     Vulkan_RenderDevice *rd;
 
-    void Init(Vulkan_RenderDevice *_rd, const std::vector<Vertex2D> &vertices);
+    void Init(Vulkan_RenderDevice *_rd, const std::vector<Vertex3D> &vertices);
     void Bind(VkCommandBuffer cmdbuf);
     void Draw(VkCommandBuffer cmdbuf);
 };

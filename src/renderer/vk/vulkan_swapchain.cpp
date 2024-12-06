@@ -182,7 +182,7 @@ void CreateDepthResources(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice *rd) 
         imageInfo.mipLevels = 1;
         imageInfo.arrayLayers = 1;
         imageInfo.format = swapchain->depthFormat;
-        imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+        imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL; // let the gpu to shuffle the data however it sees fit
         imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         imageInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
         imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -277,6 +277,9 @@ std::unique_ptr<Vulkan_Swapchain> CreateSwapchain(Vulkan_RenderDevice *rd, VkExt
     VkSurfaceFormatKHR surfaceFormat = ChooseSwapSurfaceFormat(swapChainSupport.formats);
     VkPresentModeKHR   presentMode = ChooseSwapPresentMode(swapChainSupport.presentModes);
     VkExtent2D         extent = ChooseSwapExtent((GLFWwindow *)window.handle, windowExtent, swapChainSupport.caps);
+   
+    window.framebuffer_width = extent.width;
+    window.framebuffer_height = extent.height;
 
     swapchain->imageFormat = surfaceFormat.format;
     swapchain->swapchainExtent = extent;

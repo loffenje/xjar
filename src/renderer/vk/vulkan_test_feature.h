@@ -2,6 +2,7 @@
 
 #include <initializer_list>
 #include "renderer/test_feature.h"
+#include "renderer/camera.h"
 #include "vulkan_render_device.h"
 #include "vulkan_pipeline.h"
 
@@ -10,7 +11,7 @@ namespace xjar {
 class Vulkan_TestFeature final : public TestFeature {
 public:
     void Init(void *device, void *renderPass) override;
-    void DrawEntities(void *cmdbuf, std::initializer_list<Entity *> entities) override;
+    void DrawEntities(void *cmdbuf, const Camera &camera, std::initializer_list<Entity *> entities) override;
 private:
     void CreatePipeline();
 
