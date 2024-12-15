@@ -9,13 +9,36 @@
 #include <stdlib.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include "renderer/renderer_system.h"
+#include "renderer/render_system.h"
 #include "world.h"
+#include "game_input.h"
+#include "renderer/camera.h"
+#include "tools/mesh_converter.h"
 #include "renderer/test_feature.h"
+#include "texture_manager.h"
 #include "window.h"
+
+static xjar::GameInput g_gameInput[2];
+static xjar::GameInput *g_currInput;
+static xjar::GameInput *g_prevInput;
+
+static xjar::FirstPerson_Camera g_FpsCamera;
+
+static void ProcessButton(xjar::ButtonState &button, b32 pressed) {
+    if (button.pressed != pressed) {
+        button.pressed = pressed;
+        button.transitions++;
+    }
+}
+
+glm::vec2 g_lastMousePos = glm::vec2(0.0f);
 
 int main() {
     glfwSetErrorCallback([](int error, const char *description) { fprintf(stderr, "Error: %s\n", description); });
+
+#if 0
+    MeshConvert("assets/backpack/backpack.obj", "assets/test.mesh", true, true);
+    #endif
 
     const u32   window_width = 1280;
     const u32   window_height = 720;
@@ -40,13 +63,68 @@ int main() {
 
     xjar::SetWindowParams(window_width, window_height, window_title, window, glfwGetWin32Window(window));
 
+    glfwSetCursorPosCallback(window, [](GLFWwindow *window, f64 xpos, f64 ypos) {
+        
+        int w, h;
+        glfwGetFramebufferSize(window, &w, &h);
+
+        g_currInput->mouseX = static_cast<f32>(xpos / w);
+        g_currInput->mouseY = static_cast<f32>(ypos / h);
+
+        g_lastMousePos = glm::vec2(g_currInput->mouseX, g_currInput->mouseY);
+    });
+
+    glfwSetMouseButtonCallback(window, [](GLFWwindow *window, int button, int action, int mods) {
+        
+        if (action != GLFW_REPEAT) {
+            b32 isPressed = action;
+            if (button == GLFW_MOUSE_BUTTON_LEFT) {
+                ProcessButton(g_currInput->mouseButtons[xjar::GameMouseInput_Left], isPressed);
+            }
+        }
+    });
+    
     glfwSetKeyCallback(window, [](GLFWwindow *window, int key, int scancode, int action, int mods) {
         if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
             glfwSetWindowShouldClose(window, GLFW_TRUE);
+
+        if (action != GLFW_REPEAT) {
+            b32 isPressed = action;
+            if (key == GLFW_KEY_W) {
+                ProcessButton(g_currInput->actionUp, isPressed);
+            }
+            if (key == GLFW_KEY_S) {
+                ProcessButton(g_currInput->actionDown, isPressed);
+            }
+            if (key == GLFW_KEY_D) {
+                ProcessButton(g_currInput->actionRight, isPressed);
+            }
+            if (key == GLFW_KEY_A) {
+                ProcessButton(g_currInput->actionLeft, isPressed);
+            }
+            if (key == GLFW_KEY_1) {
+                ProcessButton(g_currInput->button1, isPressed);
+            }
+            if (key == GLFW_KEY_2) {
+                ProcessButton(g_currInput->button2, isPressed);
+            }
+
+            if (key == GLFW_KEY_3) {
+                ProcessButton(g_currInput->button3, isPressed);
+            }
+
+            if (mods & GLFW_MOD_SHIFT) {
+                ProcessButton(g_currInput->actionAccelerate, isPressed);
+            }
+
+            if (key == GLFW_KEY_SPACE) {
+                g_FpsCamera.SetUpVector(glm::vec3(0.0f, 1.0f, 0.0f));
+            }
+        }
     });
 
     glfwSetFramebufferSizeCallback(window, [](GLFWwindow *window, int w, int h) {
-        xjar::RendererSystem::Instance().OnResized(w, h);
+        xjar::RenderSystem::Instance().OnResized(w, h);
     });
 
 
@@ -54,107 +132,85 @@ int main() {
     glfwMakeContextCurrent(window);
     gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
     glfwSwapInterval(1);
+
+    printf("Vendor %s\n", glGetString(GL_VENDOR));
+    printf("Renderer %s\n", glGetString(GL_RENDERER));
+    printf("Shading lang %s\n", glGetString(GL_SHADING_LANGUAGE_VERSION));
 #endif
 
-    auto &rendererSystem = xjar::RendererSystem::Instance();
+    g_FpsCamera.Setup(glm::vec3(0.0f, 0.0f, -10.0f), glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
-    rendererSystem.Startup();
+    auto &renderSystem = xjar::RenderSystem::Instance();
 
-
-
-    auto &world = xjar::World::Instance();
-    xjar::Entity *triangle = world.CreateEntity();
-    triangle->model.vertices = {
-       // left face (white)
-    {{-.5f, -.5f, -.5f}, {.9f, .9f, .9f}},
-    {{-.5f, .5f, .5f}, {.9f, .9f, .9f}},
-    {{-.5f, -.5f, .5f}, {.9f, .9f, .9f}},
-    {{-.5f, -.5f, -.5f}, {.9f, .9f, .9f}},
-    {{-.5f, .5f, -.5f}, {.9f, .9f, .9f}},
-    {{-.5f, .5f, .5f}, {.9f, .9f, .9f}},
-
-    // right face (yellow)
-    {{.5f, -.5f, -.5f}, {.8f, .8f, .1f}},
-    {{.5f, .5f, .5f}, {.8f, .8f, .1f}},
-    {{.5f, -.5f, .5f}, {.8f, .8f, .1f}},
-    {{.5f, -.5f, -.5f}, {.8f, .8f, .1f}},
-    {{.5f, .5f, -.5f}, {.8f, .8f, .1f}},
-    {{.5f, .5f, .5f}, {.8f, .8f, .1f}},
-
-    // top face (orange, remember y axis points down)
-        {{-.5f, -.5f, -.5f}, {.9f, .6f, .1f}},
-    {{.5f, -.5f, .5f}, {.9f, .6f, .1f}},
-    {{-.5f, -.5f, .5f}, {.9f, .6f, .1f}},
-    {{-.5f, -.5f, -.5f}, {.9f, .6f, .1f}},
-    {{.5f, -.5f, -.5f}, {.9f, .6f, .1f}},
-    {{.5f, -.5f, .5f}, {.9f, .6f, .1f}},
-
-    // bottom face (red)
-        {{-.5f, .5f, -.5f}, {.8f, .1f, .1f}},
-    {{.5f, .5f, .5f}, {.8f, .1f, .1f}},
-    {{-.5f, .5f, .5f}, {.8f, .1f, .1f}},
-    {{-.5f, .5f, -.5f}, {.8f, .1f, .1f}},
-    {{.5f, .5f, -.5f}, {.8f, .1f, .1f}},
-    {{.5f, .5f, .5f}, {.8f, .1f, .1f}},
-
-    // nose face (blue)
-        {{-.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
-    {{.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
-    {{-.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
-    {{-.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
-    {{.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
-    {{.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
-
-    // tail face (green)
-     {{-.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
-    {{.5f, .5f, -0.5f}, {.1f, .8f, .1f}},
-    {{-.5f, .5f, -0.5f}, {.1f, .8f, .1f}},
-    {{-.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
-    {{.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
-    {{.5f, .5f, -0.5f}, {.1f, .8f, .1f}},
-};
-;
-    
-
-    glm::vec3 camPos = {0.f, 0.f, -2.f};
-    
-    xjar::Camera camera;
-    camera.view = glm::translate(glm::mat4(1.f), camPos);
+    renderSystem.Startup();
 
     f32 frameTime = static_cast<f32>(glfwGetTime());
 
     auto windowObj = xjar::GetWindow();
     
-    rendererSystem.LoadModel(triangle->model);
+    auto         &world = xjar::World::Instance();
+    xjar::Entity *ent = world.CreateEntity();
+    ent->model.texture = xjar::TextureManager::Instance().Acquire("assets/wood.jpg");
+    xjar::RenderSystem::Instance().LoadModel("assets/test.mesh", ent->model);
+
+    xjar::Entity *ent2 = world.CreateEntity();
+    ent2->model.texture = xjar::TextureManager::Instance().Acquire("assets/wood.jpg");
+    xjar::RenderSystem::Instance().LoadModel("assets/test.mesh", ent2->model);
+
+    memset(g_gameInput, 0, sizeof(xjar::GameInput));
+
+    g_currInput = &g_gameInput[0];
+    g_prevInput = &g_gameInput[1];
 
     while (!glfwWindowShouldClose(window)) {
     
-        camera.projection = glm::perspective(glm::radians(45.0f), static_cast<f32>(windowObj.width) / static_cast<f32>(windowObj.height), 0.1f, 100.0f);
-        camera.projection[1][1] *= -1;
-
-        glm::mat4 localTransform = glm::rotate(glm::mat4(1.0f), (f32)glfwGetTime(), glm::vec3(1.0f, 0.0f, 1.0f));
-        triangle->model.localTransform = localTransform;
-
         f32 currentTime = glfwGetTime();
         f32 dtForFrame = currentTime - static_cast<f32>(frameTime);
 
         frameTime = currentTime;
 
-        glfwPollEvents();
-
-        if (auto *cmdbuf = rendererSystem.BeginFrame()) {
-            rendererSystem.BeginDefaultPass();
-           
-            rendererSystem.testFeature->DrawEntities(cmdbuf, camera, {triangle});
-
-            rendererSystem.EndDefaultPass();
-
-            rendererSystem.EndFrame();
+        memset(g_currInput, 0, sizeof(*g_currInput));
+        for (int i = 0; i < xjar::BUTTON_COUNT; i++) {
+            g_currInput->buttons[i].pressed = g_prevInput->buttons[i].pressed;
         }
+
+        for (int i = 0; i < xjar::GameMouseInput_Count; i++) {
+            g_currInput->mouseButtons[i].pressed = g_prevInput->mouseButtons[i].pressed;
+        }
+
+        glfwPollEvents();
+        
+        g_FpsCamera.Update(dtForFrame, g_currInput, g_lastMousePos);
+        
+        glm::mat4 model = glm::mat4(1.0f); // make sure to initialize matrix to identity matrix first
+        ent->model.localTransform = model;
+
+        glm::mat4 model2 = glm::translate(glm::mat4(1.0f), glm::vec3(10.0f, 0.0f, 0.0f));
+        ent2->model.localTransform = model2;
+        
+        xjar::GPU_SceneData sceneData{};
+        sceneData.viewMat = g_FpsCamera.GetViewMatrix();
+        sceneData.projMat = glm::perspective(glm::radians(45.0f), (f32)windowObj.width / (f32)windowObj.height, 0.1f, 1000.0f);
+
+        auto frame = renderSystem.BeginFrame();
+        if (frame.success) {
+
+            renderSystem.BeginDefaultPass(sceneData);
+           
+            renderSystem.testFeature->DrawEntities(frame.data, sceneData, {ent, ent2});
+
+            renderSystem.EndDefaultPass();
+            renderSystem.EndFrame();
+        }
+
+        
+        xjar::GameInput *tempInput = g_currInput;
+        g_currInput = g_prevInput;
+        g_prevInput = tempInput;
     }
 
 
-    rendererSystem.Shutdown();
+    renderSystem.Shutdown();
 
     glfwDestroyWindow(window);
     glfwTerminate();

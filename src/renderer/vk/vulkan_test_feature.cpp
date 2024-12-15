@@ -58,6 +58,7 @@ void Vulkan_TestFeature::CreatePipeline() {
     bindingDescriptions[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
     std::vector<VkVertexInputAttributeDescription> attributeDescriptions(2);
+#if 0
     attributeDescriptions[0].binding = 0;
     attributeDescriptions[0].location = 0;
     attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
@@ -67,6 +68,7 @@ void Vulkan_TestFeature::CreatePipeline() {
     attributeDescriptions[1].location = 1;
     attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
     attributeDescriptions[1].offset = offsetof(Vertex3D, color);
+#endif
 
     m_pipeline.SetInputTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
     m_pipeline.SetPolygonMode(VK_POLYGON_MODE_FILL);
@@ -83,7 +85,8 @@ void Vulkan_TestFeature::CreatePipeline() {
     vkDestroyShaderModule(m_renderDevice->device, vertShaderModule, nullptr);
 }
 
-void Vulkan_TestFeature::DrawEntities(void *cmdbuf, const Camera &camera, std::initializer_list<Entity *> entities) {
+void Vulkan_TestFeature::DrawEntities(void *cmdbuf, const GPU_SceneData &sceneData, std::initializer_list<Entity *> entities) {
+
     VkCommandBuffer *vkcmdbuf = (VkCommandBuffer *)cmdbuf;
     m_pipeline.Bind(*vkcmdbuf);
 
@@ -91,7 +94,8 @@ void Vulkan_TestFeature::DrawEntities(void *cmdbuf, const Camera &camera, std::i
         Vulkan_Model *vkmodel = (Vulkan_Model *)ent->model.handle;
 
         PushConstantData constants;
-        constants.transform = camera.projection * camera.view * ent->model.localTransform;
+        //TODO: pass transform 
+        //constants.transform = camera.projection * camera.view * ent->model.localTransform;
 
         //upload the matrix to the GPU via push constants
         vkCmdPushConstants(*vkcmdbuf, m_pipeline.pipelineLayout,

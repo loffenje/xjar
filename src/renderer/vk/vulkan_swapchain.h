@@ -34,7 +34,6 @@ struct Vulkan_Swapchain {
 std::unique_ptr<Vulkan_Swapchain> CreateSwapchain(Vulkan_RenderDevice *rd, VkExtent2D windowExtent, std::shared_ptr<Vulkan_Swapchain> prev);
 void                              DestroySwapchain(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice *rd);
 
-VkResult AcquireNextImage(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice *rd, u32 *imageIndex);
 VkResult SubmitCommandBuffers(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice *rd, const VkCommandBuffer *buffers, u32 *imageIndex);
 
 }

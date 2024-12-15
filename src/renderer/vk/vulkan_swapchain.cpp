@@ -364,24 +364,6 @@ void DestroySwapchain(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice *rd) {
     }
 }
 
-VkResult AcquireNextImage(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice *rd, u32 *imageIndex) {
-    vkWaitForFences(
-        rd->device,
-        1,
-        &swapchain->inFlightFences[swapchain->currentFrame],
-        VK_TRUE,
-        UINT64_MAX);
-
-    VkResult result = vkAcquireNextImageKHR(
-        rd->device,
-        swapchain->swapchain,
-        UINT64_MAX,
-        swapchain->imageAvailableSems[swapchain->currentFrame],
-        VK_NULL_HANDLE,
-        imageIndex);
-
-    return result;
-}
 
 VkResult SubmitCommandBuffers(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice *rd, const VkCommandBuffer *buffers, u32 *imageIndex) {
     if (swapchain->imagesInFlight[*imageIndex] != VK_NULL_HANDLE) {

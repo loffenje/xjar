@@ -11,7 +11,7 @@ namespace xjar {
 class Vulkan_TestFeature final : public TestFeature {
 public:
     void Init(void *device, void *renderPass) override;
-    void DrawEntities(void *cmdbuf, const Camera &camera, std::initializer_list<Entity *> entities) override;
+    void DrawEntities(void *cmdbuf, const GPU_SceneData &sceneData, std::initializer_list<Entity *> entities) override;
 private:
     void CreatePipeline();
 

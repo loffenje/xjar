@@ -1,7 +1,7 @@
 #include "texture_manager.h"
 
 #include "renderer/resource_types.h"
-#include "renderer/renderer_system.h"
+#include "renderer/render_system.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -46,7 +46,7 @@ static void CreateDefaultTexture() {
     g_defaultTexture.id = 0;
     g_defaultTexture.nr = channels;
 
-    RendererSystem::Instance().CreateTexture(pixels.data(), &g_defaultTexture);
+    RenderSystem::Instance().CreateTexture(pixels.data(), &g_defaultTexture);
     g_defaultTexture.id = INVALID_TEXTURE;
 }
 
@@ -65,7 +65,7 @@ std::optional<Texture> LoadTexture(const std::string &textureName) {
     texture.height = static_cast<u32>(h);
     texture.name = textureName;
 
-    RendererSystem::Instance().CreateTexture(pixels, &texture);
+    RenderSystem::Instance().CreateTexture(pixels, &texture);
 
     stbi_image_free(pixels);
 
@@ -118,7 +118,7 @@ void TextureManager::Release(const std::string &name) {
         --textureRef.refcount;
 
         if (textureRef.refcount == 0 && textureRef.autorelease) {
-            RendererSystem::Instance().DestroyTexture(&textureRef.texture);
+            RenderSystem::Instance().DestroyTexture(&textureRef.texture);
 
             textureRef.autorelease = false;
         }

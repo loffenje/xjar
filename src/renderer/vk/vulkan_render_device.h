@@ -59,7 +59,7 @@ void CreateBuffer(Vulkan_RenderDevice  *rd,
 VkCommandBuffer BeginImmediateCommands(Vulkan_RenderDevice *rd);
 void            EndImmediateCommands(Vulkan_RenderDevice *rd, VkCommandBuffer cmdbuf);
 
-void TransitionImageLayout(Vulkan_RenderDevice *rd,
+void TransitionImageLayout(VkCommandBuffer      cmdbuf,
                            VkImage              image,
                            VkFormat             format,
                            VkImageLayout        oldLayout,
@@ -67,5 +67,7 @@ void TransitionImageLayout(Vulkan_RenderDevice *rd,
                            u32                  layerCount = 1);
 
 VkShaderModule CreateShaderModule(Vulkan_RenderDevice *rd, std::span<char> code);
+
+void CopyBufferToImage(VkCommandBuffer cmdbuf, VkBuffer buffer, VkImage image, u32 width, u32 height);
 
 }

@@ -18,7 +18,10 @@ message(STATUS "Using renderer: ${RENDERER_BACKEND}")
 if(RENDERER_BACKEND STREQUAL "OpenGL")
     find_package(OpenGL REQUIRED)
     set(RENDERER_SRC
-        src/renderer/gl/opengl_backend.cpp)
+        src/renderer/gl/opengl_backend.cpp
+        src/renderer/gl/opengl_pipeline.cpp
+        src/renderer/gl/opengl_test_feature.cpp
+        src/renderer/gl/opengl_mesh.cpp)
     add_subdirectory(3rd/glad)
     include_directories(3rd/glad/include)
 elseif(RENDERER_BACKEND STREQUAL "Vulkan")
@@ -26,6 +29,7 @@ elseif(RENDERER_BACKEND STREQUAL "Vulkan")
     set(RENDERER_SRC
         src/renderer/vk/vulkan_pipeline.cpp
         src/renderer/vk/vulkan_swapchain.cpp
+        src/renderer/vk/vulkan_ds.cpp
         src/renderer/vk/vulkan_render_device.cpp
         src/renderer/vk/vulkan_test_feature.cpp
         src/renderer/vk/vulkan_model.cpp
@@ -37,7 +41,7 @@ set(SRCS
     src/window.cpp
     src/world.cpp
     src/texture_manager.cpp
-    src/renderer/renderer_system.cpp
+    src/renderer/render_system.cpp
     ${RENDERER_SRC})
 
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)

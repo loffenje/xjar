@@ -1,0 +1,126 @@
+#include "types.h"
+
+#include "renderer/renderer_types.h"
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
+#include <assimp/Importer.hpp>
+
+namespace {
+std::vector<xjar::MeshFormat> g_meshes;
+std::vector<u32>        g_indexData;
+std::vector<f32>        g_vertexData;
+u32                     g_indexOffset;
+u32                     g_vertexOffset;
+bool                    g_exportTexcoords = false;
+bool                    g_exportNormals = false;
+u32                     g_numElementsToStore = 3; // by default only vertex elements
+
+constexpr char cmdExportTexcoords[] = "-t";
+constexpr char cmdExportNormals[] = "-n";
+
+}
+
+xjar::MeshFormat ConvertAIMesh(const aiMesh *m) {
+    const bool hasTexCoords = m->HasTextureCoords(0);
+
+    const u32 numIndices = m->mNumFaces * 3;
+    const u32 numElements = g_numElementsToStore;
+    const u32 streamElementSize = static_cast<u32>(numElements * sizeof(f32));
+    const u32 meshSize = static_cast<u32>(m->mNumVertices * streamElementSize + numIndices * sizeof(u32));
+
+
+    for (size_t i = 0; i != m->mNumVertices; i++) {
+        const aiVector3D &v = m->mVertices[i];
+        const aiVector3D &n = m->mNormals[i];
+        const aiVector3D &t = hasTexCoords ? m->mTextureCoords[0][i] : aiVector3D();
+        g_vertexData.push_back(v.x);
+        g_vertexData.push_back(v.y);
+        g_vertexData.push_back(v.z);
+
+        if (g_exportTexcoords) {
+            g_vertexData.push_back(t.x);
+            g_vertexData.push_back(t.y);
+        }
+
+        if (g_exportNormals) {
+            g_vertexData.push_back(n.x);
+            g_vertexData.push_back(n.y);
+            g_vertexData.push_back(n.z);
+        }
+
+    }
+
+    const xjar::MeshFormat result = {
+        .lodNum = 1,
+        .streamNum = 1,
+        .materialID = 0,
+        .meshSize = meshSize,
+        .vertexCount = m->mNumVertices,
+        .lodOffset = {g_indexOffset * sizeof(u32), (g_indexOffset + numIndices) * sizeof(u32)},
+        .streamOffset = {g_vertexOffset * streamElementSize},
+        .streamElementSize = streamElementSize};
+
+    for (size_t i = 0; i != m->mNumFaces; i++) {
+        const aiFace &face = m->mFaces[i];
+        g_indexData.push_back(face.mIndices[0] + g_vertexOffset);
+        g_indexData.push_back(face.mIndices[1] + g_vertexOffset);
+        g_indexData.push_back(face.mIndices[2] + g_vertexOffset);
+    }
+    g_indexOffset += numIndices;
+    g_vertexOffset += m->mNumVertices;
+
+    return result;
+}
+
+void SaveMeshes(FILE *f) {
+    xjar::MeshHdr hdr = {
+        .magicValue = 0xdeadbeef,
+        .meshNum = (u32)g_meshes.size(),
+        .dataStartOffset = (u32)(sizeof(xjar::MeshHdr) + g_meshes.size() * sizeof(xjar::MeshFormat)),
+        .indexDataSize = (u32)(g_indexData.size() * sizeof(u32)),
+        .vertexDataSize = (u32)(g_vertexData.size() * sizeof(f32))
+    };
+
+    fwrite(&hdr, 1, sizeof(hdr), f);
+    fwrite(g_meshes.data(), hdr.meshNum, sizeof(xjar::MeshFormat), f);
+    fwrite(g_indexData.data(), 1, hdr.indexDataSize, f);
+    fwrite(g_vertexData.data(), 1, hdr.vertexDataSize, f);
+
+}
+
+void LoadFile(const char *filename) {
+    const u32 flags = aiProcess_JoinIdenticalVertices | aiProcess_Triangulate | aiProcess_GenSmoothNormals 
+        | aiProcess_PreTransformVertices | aiProcess_RemoveRedundantMaterials | aiProcess_FindDegenerates 
+        | aiProcess_FindInvalidData | aiProcess_FindInstances | aiProcess_OptimizeMeshes;
+
+    Assimp::Importer importer;
+    const aiScene   *scene = importer.ReadFile(filename, flags);
+
+    if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
+        fprintf(stderr, "Assimp error %s\n", importer.GetErrorString());
+        exit(1);
+    }
+
+    g_meshes.reserve(scene->mNumMeshes);
+    for (size_t i = 0; i != scene->mNumMeshes; i++) {
+        g_meshes.push_back(ConvertAIMesh(scene->mMeshes[i]));
+    }
+}
+
+void MeshConvert(const char *inputFile, const char *outputFile, bool exportTexcoords, bool exportNormals) {
+
+    if (exportTexcoords) {
+        g_numElementsToStore += 2;
+        g_exportTexcoords = true;
+    }
+    if (exportNormals) {
+        g_numElementsToStore += 3;
+        g_exportNormals = true;
+    }
+
+    LoadFile(inputFile);
+
+    FILE *output = fopen(outputFile, "wb");
+    SaveMeshes(output);
+    fclose(output);
+}

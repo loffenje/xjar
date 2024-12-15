@@ -6,25 +6,34 @@ namespace xjar {
 
 class RendererBackend {
 public:
-    virtual void CreateTexture(const void *pixels, Texture *texture) = 0;
-    virtual void DestroyTexture(Texture *texture) = 0;
-    virtual void OnResized(u32 width, u32 height) = 0;
-    virtual void *BeginFrame() = 0;
-    virtual void EndFrame() = 0;
-    virtual void LoadModel(Model &model) = 0;
+    virtual void        CreateTexture(const void *pixels, Texture *texture) = 0;
+    virtual void        DestroyTexture(Texture *texture) = 0;
+    virtual void        OnResized(u32 width, u32 height) = 0;
+    virtual FrameStatus BeginFrame() = 0;
+    virtual void        EndFrame() = 0;
 
-    virtual void *GetSwapchainRenderPass() { return nullptr; }
-    virtual void *GetRenderDevice() { return nullptr; }
+    virtual void CreateMesh(Model &model) = 0;
     
-    virtual void OnInit() {}
-    virtual void OnDestroy() {}
-    virtual void UpdateGlobalState(const glm::mat4 &proj, const glm::mat4 &view) {}
-    virtual void DrawGeometry() {}
+    virtual void *GetDefaultRenderPass() {
+        return nullptr;
+    }
+    virtual void *GetRenderDevice() {
+        return nullptr;
+    }
 
-    virtual void ClearColor(f32 r, f32 g, f32 b, f32 a) {}
+    virtual void OnInit() {
+    }
+    virtual void OnDestroy() {
+    }
+    virtual void UpdateGlobalState(const GPU_SceneData &sceneData) {
+    }
+    virtual void ClearColor(f32 r, f32 g, f32 b, f32 a) {
+    }
 
-    virtual void BeginSwapchainPass() {}
-    virtual void EndSwapchainPass() {}
+    virtual void BeginDefaultPass() {
+    }
+    virtual void EndDefaultPass() {
+    }
 
     virtual ~RendererBackend() = default;
 };
