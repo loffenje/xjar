@@ -1,12 +1,13 @@
 #include "vulkan_ds.h"
 
 namespace xjar {
-#if 0
-void DescriptorLayoutBuilder::AddBinding(u32 binding, VkDescriptorType type) {
+
+void DescriptorLayoutBuilder::AddBinding(u32 binding, VkDescriptorType type, VkShaderStageFlags shaderStages) {
     VkDescriptorSetLayoutBinding b {};
     b.binding = binding;
     b.descriptorCount = 1;
     b.descriptorType = type;
+    b.stageFlags = shaderStages;
 
     bindings.push_back(b);
 }
@@ -15,10 +16,7 @@ void DescriptorLayoutBuilder::Clear() {
     bindings.clear();
 }
 
-VkDescriptorSetLayout DescriptorLayoutBuilder::Build(VkDevice device, VkShaderStageFlags shaderStages, VkDescriptorSetLayoutCreateFlags flags, void *next) {
-    for (auto &binding : bindings) {
-        binding.stageFlags |= shaderStages;
-    }
+VkDescriptorSetLayout DescriptorLayoutBuilder::Build(VkDevice device, VkDescriptorSetLayoutCreateFlags flags, void *next) {
 
     VkDescriptorSetLayoutCreateInfo info {};
     info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -28,7 +26,7 @@ VkDescriptorSetLayout DescriptorLayoutBuilder::Build(VkDevice device, VkShaderSt
     info.flags = flags;
 
     VkDescriptorSetLayout layout;
-    if (!vkCreateDescriptorSetLayout(device, &info, nullptr, &layout) != VK_SUCCESS) {
+    if (vkCreateDescriptorSetLayout(device, &info, nullptr, &layout) != VK_SUCCESS) {
         fprintf(stderr, "failed to create descriptor set layout\n");
         exit(1);
     }
@@ -36,8 +34,56 @@ VkDescriptorSetLayout DescriptorLayoutBuilder::Build(VkDevice device, VkShaderSt
     return layout;
 }
 
+
+void DescriptorWriter::WriteImage(int binding, VkImageView imageView, VkSampler sampler, VkImageLayout imageLayout, VkDescriptorType type) {
+    VkDescriptorImageInfo &info = imageInfos.emplace_back(VkDescriptorImageInfo {
+        .sampler = sampler,
+        .imageView = imageView,
+        .imageLayout = imageLayout});
+
+    VkWriteDescriptorSet write {};
+    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write.dstBinding = binding;
+    write.dstSet = VK_NULL_HANDLE;
+    write.descriptorCount = 1;
+    write.descriptorType = type;
+    write.pImageInfo = &info;
+
+    writes.push_back(write);
+}
+
+void DescriptorWriter::WriteBuffer(int binding, VkBuffer buffer, size_t size, size_t offset, VkDescriptorType type) {
+    VkDescriptorBufferInfo &info = bufferInfos.emplace_back(VkDescriptorBufferInfo {
+        .buffer = buffer,
+        .offset = offset,
+        .range = size});
+
+    VkWriteDescriptorSet write {};
+    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write.dstBinding = binding;
+    write.dstSet = VK_NULL_HANDLE;
+    write.descriptorCount = 1;
+    write.descriptorType = type;
+    write.pBufferInfo = &info;
+
+    writes.push_back(write);
+}
+void DescriptorWriter::Clear() {
+    imageInfos.clear();
+    bufferInfos.clear();
+    writes.clear();
+}
+
+void DescriptorWriter::UpdateSet(VkDevice device, VkDescriptorSet ds) {
+    for (VkWriteDescriptorSet &write : writes) {
+        write.dstSet = ds;
+    }
+
+    vkUpdateDescriptorSets(device, (u32)writes.size(), writes.data(), 0, nullptr);
+}
+
 void DescriptorAllocator::Init(VkDevice device, u32 initSets, std::span<PoolSizeRatio> poolRatios) {
-    poolRatios.clear();
+    m_ratios.clear();
 
     for (auto poolRatio : poolRatios) {
         m_ratios.push_back(poolRatio);
@@ -139,60 +185,12 @@ VkDescriptorPool DescriptorAllocator::CreatePool(VkDevice device, u32 setCount, 
     poolInfo.pPoolSizes = poolSizes.data();
 
     VkDescriptorPool newPool;
-    vkCreateDescriptorPool(device, &poolInfo, nullptr, &newPool);
+    if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &newPool) != VK_SUCCESS) {
+        fprintf(stderr, "Failed to create ds pool\n");
+        exit(1);
+    }
 
     return newPool;
 }
 
-void DescriptorWriter::WriteImage(int binding, VkImageView imageView, VkSampler sampler, VkImageLayout imageLayout, VkDescriptorType type) {
-    VkDescriptorImageInfo &info = imageInfos.emplace_back(VkDescriptorImageInfo{
-        .sampler = sampler,
-        .imageView = imageView,
-        .imageLayout = imageLayout
-    });
-
-    VkWriteDescriptorSet write{};
-    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    write.dstBinding = binding;
-    write.dstSet = VK_NULL_HANDLE;
-    write.descriptorCount = 1;
-    write.descriptorType = type;
-    write.pImageInfo = &info;
-
-    writes.push_back(write);
-
-}
-
-void DescriptorWriter::WriteBuffer(int binding, VkBuffer buffer, size_t size, size_t offset, VkDescriptorType type) {
-    VkDescriptorBufferInfo &info = bufferInfos.emplace_back(VkDescriptorBufferInfo{
-        .buffer = buffer,
-        .offset = offset,
-        .range = size
-    });
-
-    VkWriteDescriptorSet write{};
-    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    write.dstBinding = binding;
-    write.dstSet = VK_NULL_HANDLE;
-    write.descriptorCount = 1;
-    write.descriptorType = type;
-    write.pBufferInfo = &info;
-
-    writes.push_back(write);
-}
-void DescriptorWriter::Clear() {
-    imageInfos.clear();
-    bufferInfos.clear();
-    writes.clear();
-}
-
-void DescriptorWriter::UpdateSet(VkDevice device, VkDescriptorSet ds) {
-    for (VkWriteDescriptorSet &write : writes) {
-        write.dstSet = ds;
-    }
-
-    vkUpdateDescriptorSets(device, (u32)writes.size(), writes.data(), 0, nullptr);
-}
-
-#endif
 }

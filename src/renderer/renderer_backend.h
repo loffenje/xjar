@@ -20,6 +20,9 @@ public:
     virtual void *GetRenderDevice() {
         return nullptr;
     }
+    virtual void *GetSwapchain() {
+        return nullptr;
+    }
 
     virtual void OnInit() {
     }

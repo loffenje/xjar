@@ -32,7 +32,9 @@ const std::vector<const char *> VALIDATION_LAYERS = {
     "VK_LAYER_KHRONOS_validation"};
 
 const std::vector<const char *> DEVICE_EXTENSIONS = {
-    VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+    VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME
+};
 
 static u32 FindMemoryType(Vulkan_RenderDevice *rd, u32 typeFilter, VkMemoryPropertyFlags properties) {
     VkPhysicalDeviceMemoryProperties memProperties;
@@ -79,6 +81,31 @@ QueueFamily FindQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface) {
     return families;
 }
 
+VkFormat FindSupportedFormat(VkPhysicalDevice physicalDevice, const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
+    for (VkFormat format : candidates) {
+        VkFormatProperties props;
+        vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &props);
+
+        if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
+            return format;
+        } else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
+            return format;
+        }
+    }
+
+    fprintf(stderr, "Failed to find supported format\n");
+    exit(EXIT_FAILURE);
+
+    return VkFormat {};
+}
+
+VkFormat FindDepthFormat(VkPhysicalDevice physicalDevice) {
+    return FindSupportedFormat(physicalDevice,
+                               {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
+                               VK_IMAGE_TILING_OPTIMAL,
+                               VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+}
+
 VkCommandBuffer BeginImmediateCommands(Vulkan_RenderDevice *rd) {
     VkCommandBufferAllocateInfo allocInfo {};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -111,6 +138,15 @@ void EndImmediateCommands(Vulkan_RenderDevice *rd, VkCommandBuffer cmdbuf) {
 
     vkFreeCommandBuffers(rd->device, rd->commandPool, 1, &cmdbuf);
 }
+
+void UploadBufferData(Vulkan_RenderDevice *rd, const VkDeviceMemory &memory, VkDeviceSize deviceOffset, const void *data, const size_t dataSize) {
+    void *mappedData = nullptr;
+
+    vkMapMemory(rd->device, memory, deviceOffset, dataSize, 0, &mappedData);
+    memcpy(mappedData, data, dataSize);
+    vkUnmapMemory(rd->device, memory);
+}
+
 
 static bool HasStencilComponent(VkFormat format) {
     return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;

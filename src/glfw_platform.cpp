@@ -14,7 +14,7 @@
 #include "game_input.h"
 #include "renderer/camera.h"
 #include "tools/mesh_converter.h"
-#include "renderer/test_feature.h"
+#include "renderer/mesh_feature.h"
 #include "texture_manager.h"
 #include "window.h"
 
@@ -37,7 +37,7 @@ int main() {
     glfwSetErrorCallback([](int error, const char *description) { fprintf(stderr, "Error: %s\n", description); });
 
 #if 0
-    MeshConvert("assets/backpack/backpack.obj", "assets/test.mesh", true, true);
+    MeshConvert("assets/backpack/backpack.obj", "assets/test.mesh", "assets/test.mesh.instance", true, true);
     #endif
 
     const u32   window_width = 1280;
@@ -151,11 +151,12 @@ int main() {
     auto         &world = xjar::World::Instance();
     xjar::Entity *ent = world.CreateEntity();
     ent->model.texture = xjar::TextureManager::Instance().Acquire("assets/wood.jpg");
-    xjar::RenderSystem::Instance().LoadModel("assets/test.mesh", ent->model);
 
     xjar::Entity *ent2 = world.CreateEntity();
     ent2->model.texture = xjar::TextureManager::Instance().Acquire("assets/wood.jpg");
-    xjar::RenderSystem::Instance().LoadModel("assets/test.mesh", ent2->model);
+
+    renderSystem.meshFeature->LoadModel("assets/test.mesh", "assets/test.mesh.instance", ent->model);
+    renderSystem.meshFeature->LoadModel("assets/test.mesh", "assets/test.mesh.instance", ent2->model);
 
     memset(g_gameInput, 0, sizeof(xjar::GameInput));
 
@@ -196,10 +197,12 @@ int main() {
         if (frame.success) {
 
             renderSystem.BeginDefaultPass(sceneData);
-           
-            renderSystem.testFeature->DrawEntities(frame.data, sceneData, {ent, ent2});
-
+             // NOTE: here we should call features that use default render pass
             renderSystem.EndDefaultPass();
+            
+            // NOTE: and here each feature will be used it's own render pass
+            renderSystem.meshFeature->DrawEntities(frame, sceneData, {ent, ent2});
+
             renderSystem.EndFrame();
         }
 

@@ -74,30 +74,6 @@ void CreateImageViews(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice *rd) {
         }
     }
 }
-static VkFormat FindSupportedFormat(VkPhysicalDevice physicalDevice, const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
-    for (VkFormat format : candidates) {
-        VkFormatProperties props;
-        vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &props);
-
-        if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
-            return format;
-        } else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
-            return format;
-        }
-    }
-
-    fprintf(stderr, "Failed to find supported format\n");
-    exit(EXIT_FAILURE);
-
-    return VkFormat {};
-}
-
-static VkFormat FindDepthFormat(VkPhysicalDevice physicalDevice) {
-    return FindSupportedFormat(physicalDevice,
-                               {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
-                               VK_IMAGE_TILING_OPTIMAL,
-                               VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
-}
 
 void CreateRenderPass(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice *rd) {
     VkAttachmentDescription depthAttachment {};
@@ -323,6 +299,8 @@ std::unique_ptr<Vulkan_Swapchain> CreateSwapchain(Vulkan_RenderDevice *rd, VkExt
         fprintf(stderr, "Failed to create a swapchain\n");
         exit(EXIT_FAILURE);
     }
+
+    rd->swapchainImageFormat = swapchain->imageFormat;
 
     vkGetSwapchainImagesKHR(rd->device, swapchain->swapchain, &imageCount, nullptr);
     swapchain->images.resize(imageCount);

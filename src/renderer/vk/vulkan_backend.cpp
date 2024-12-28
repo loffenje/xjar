@@ -1,7 +1,7 @@
 #include "vulkan_backend.h"
 
 #include "vulkan_swapchain.h"
-#include "vulkan_model.h"
+#include "vulkan_ds.h"
 #include <glm/mat4x4.hpp>
 #include <array>
 #include "window.h"
@@ -30,7 +30,6 @@ void Vulkan_Backend::OnInit() {
     m_renderDevice = CreateRenderDevice("xjar", "xjarEngine");
     RecreateSwapchain(); 
     CreateBuffers();
-    CreateDescriptors();
 }
 
 void Vulkan_Backend::CreateBuffers() {
@@ -49,28 +48,6 @@ void Vulkan_Backend::CreateBuffers() {
     }
 }
 
-void Vulkan_Backend::CreateDescriptors() {
-#if 0
-    m_frameDescriptors.resize(MAX_FRAMES_IN_FLIGHT);
-
-    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        std::vector<DescriptorAllocator::PoolSizeRatio> frameSizes = {
-            {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 3},
-            {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3},
-            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3},
-            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4},
-        };
-
-        
-        m_frameDescriptors[i] = DescriptorAllocator{};
-        m_frameDescriptors[i].Init(m_renderDevice.device, 1000, frameSizes);
-    }
-
-    DescriptorLayoutBuilder builder;
-    builder.AddBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-    g_dsSceneLayout = builder.Build(m_renderDevice.device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
-#endif
-}
 void Vulkan_Backend::OnDestroy() {
     vkDeviceWaitIdle(m_renderDevice.device);
 #if 0
@@ -117,15 +94,6 @@ u32 BytesPerTextureFormat(VkFormat fmt) {
             break;
     }
     return 0;
-}
-
-
-void UploadBufferData(Vulkan_RenderDevice *rd, const VkDeviceMemory &memory, VkDeviceSize deviceOffset, const void *data, const size_t dataSize) {
-    void *mappedData = nullptr;
-
-    vkMapMemory(rd->device, memory, deviceOffset, dataSize, 0, &mappedData);
-    memcpy(mappedData, data, dataSize);
-    vkUnmapMemory(rd->device, memory);
 }
 
 void Vulkan_Backend::CreateTexture(const void *pixels, Texture *texture) {
@@ -288,7 +256,7 @@ FrameStatus Vulkan_Backend::BeginFrame() {
     VkResult result = AcquireNextImage(&m_currentImageIndex);
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
         RecreateSwapchain();
-        FrameStatus status{.success = false, .data=nullptr};
+        FrameStatus status{.success = false, .commandBuffer=nullptr};
         return status;
     }
 
@@ -308,7 +276,7 @@ FrameStatus Vulkan_Backend::BeginFrame() {
     }
 
 
-    FrameStatus status{.success = true, .data=cmdbuf};
+    FrameStatus status{.success = true, .commandBuffer=cmdbuf, .currentImage = m_currentImageIndex};
     return status;
 }
 
@@ -333,23 +301,23 @@ void Vulkan_Backend::EndFrame() {
 }
 
 void  Vulkan_Backend::CreateMesh(Model &model) {
-    //TODO: create mesh
+
 }
 
 void Vulkan_Backend::BeginDefaultPass() {
     auto *cmdbuf = GetCurrentCommandBuffer();
 
+    std::array<VkClearValue, 2> clearValues {};
+    clearValues[0].color = {0.1f, 0.1f, 0.1f, 1.0f};
+    clearValues[1].depthStencil = {1.0f, 0};
+
+
     VkRenderPassBeginInfo passInfo {};
     passInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     passInfo.renderPass = m_swapchain->renderPass;
     passInfo.framebuffer = m_swapchain->framebuffers[m_currentImageIndex];
-
     passInfo.renderArea.offset = {0, 0};
     passInfo.renderArea.extent = m_swapchain->swapchainExtent;
-
-    std::array<VkClearValue, 2> clearValues {};
-    clearValues[0].color = {0.1f, 0.1f, 0.1f, 1.0f};
-    clearValues[1].depthStencil = {1.0f, 0};
     passInfo.clearValueCount = static_cast<u32>(clearValues.size());
     passInfo.pClearValues = clearValues.data();
 
@@ -411,17 +379,16 @@ VkCommandBuffer *Vulkan_Backend::GetCurrentCommandBuffer() {
     return &m_commandBuffers[m_currentFrameIndex];
 }
 
-#if 0
-DescriptorAllocator *Vulkan_Backend::GetCurrentFrameDescriptor() {
-    return &m_frameDescriptors[m_currentFrameIndex];
-}
-#endif
 void *Vulkan_Backend::GetDefaultRenderPass() {
     return &m_swapchain->renderPass;
 }
 
 void *Vulkan_Backend::GetRenderDevice() {
     return &m_renderDevice;
+}
+
+void *Vulkan_Backend::GetSwapchain() {
+    return m_swapchain.get();
 }
 
 }

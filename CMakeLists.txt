@@ -31,8 +31,7 @@ elseif(RENDERER_BACKEND STREQUAL "Vulkan")
         src/renderer/vk/vulkan_swapchain.cpp
         src/renderer/vk/vulkan_ds.cpp
         src/renderer/vk/vulkan_render_device.cpp
-        src/renderer/vk/vulkan_test_feature.cpp
-        src/renderer/vk/vulkan_model.cpp
+        src/renderer/vk/vulkan_multimesh_feature.cpp
         src/renderer/vk/vulkan_backend.cpp)
 endif()
 

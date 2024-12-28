@@ -5,7 +5,7 @@
 
 namespace xjar {
 
-class TestFeature;
+class MeshFeature;
 
 class RenderSystem final {
 public:
@@ -21,13 +21,16 @@ public:
     void        BeginDefaultPass(const GPU_SceneData &sceneData);
     void        EndDefaultPass();
     void        Shutdown();
-    void        LoadModel(const char *filename, Model &model);
+    void        LoadModel(const char *meshFilename, const char *instanceFilename, Model &model);
     void        CreateTexture(const void *pixels, Texture *texture);
     void        DestroyTexture(Texture *texture);
 
-    TestFeature *testFeature;
+    MeshFeature *meshFeature;
 
 private:
+    void LoadMesh(const char *filename, Model &model);
+    void LoadInstanceData(const char *filename, Model &model);
+
     RenderSystem() = default;
 };
 

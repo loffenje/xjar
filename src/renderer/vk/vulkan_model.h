@@ -9,15 +9,16 @@ namespace xjar {
 
 struct Vulkan_RenderDevice;
 
-struct Vulkan_Model {
-    VkBuffer             vertexBuffer;
-    VkDeviceMemory       vertexBufferMemory;
-    u32                  vertexCount;
+struct Vulkan_Mesh {
     Vulkan_RenderDevice *rd;
 
     void Init(Vulkan_RenderDevice *_rd, const std::vector<Vertex3D> &vertices);
     void Bind(VkCommandBuffer cmdbuf);
     void Draw(VkCommandBuffer cmdbuf);
+    void DrawIndirect(VkCommandBuffer cmdbuf);
+
+private:
+
 };
 
 };

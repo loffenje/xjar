@@ -9,7 +9,7 @@
 #include "gl/opengl_test_feature.h"
 #else
 #include "vk/vulkan_backend.h"
-#include "vk/vulkan_test_feature.h"
+#include "vk/vulkan_multimesh_feature.h"
 #endif
 
 #include <glm/vec4.hpp>
@@ -37,12 +37,12 @@ void RenderSystem::Startup() {
 #else
     g_backend = new Vulkan_Backend;
     
-    testFeature = new Vulkan_TestFeature;
+    meshFeature = new Vulkan_MultiMeshFeature;
 #endif
 
     g_backend->OnInit();
 
-    testFeature->Init(g_backend->GetRenderDevice(), g_backend->GetDefaultRenderPass());
+    meshFeature->Init(g_backend->GetRenderDevice(), g_backend->GetSwapchain());
 }
 
 void RenderSystem::Shutdown() {
@@ -50,38 +50,8 @@ void RenderSystem::Shutdown() {
     delete g_backend;
 }
 
-void RenderSystem::LoadModel(const char *filename, Model &model) {
-    FILE *file = fopen(filename, "rb");
-    if (!file) {
-        fprintf(stderr, "Failed to load model %s\n", filename);
-        exit(1);
-    }
 
-    MeshHdr hdr;
-    if (fread(&hdr, 1, sizeof(hdr), file) != sizeof(hdr)) {
-        fprintf(stderr, "Unable to read %s file\n", filename);
-        exit(1);
-    }
-
-    const u32 meshNum = hdr.meshNum;
-    std::vector<MeshFormat> meshes;
-    meshes.resize(meshNum);
-
-    if (fread(meshes.data(), sizeof(MeshFormat), meshNum, file) != meshNum) {
-        fprintf(stderr, "Unable to read meshes from %s file\n", filename);
-        exit(1);
-    }
-
-    const u32 indexDataSize = hdr.indexDataSize;
-    const u32 vertexDataSize = hdr.vertexDataSize;
-    model.mesh.indexData.resize(indexDataSize / sizeof(u32));
-    model.mesh.vertexData.resize(vertexDataSize / sizeof(f32));
-
-    if (fread(model.mesh.indexData.data(), 1, indexDataSize, file) != indexDataSize ||
-        fread(model.mesh.vertexData.data(), 1, vertexDataSize, file) != vertexDataSize) {
-        fprintf(stderr, "Unable to read geometry\n");
-        exit(1);
-    }
+void RenderSystem::LoadModel(const char *meshFilename, const char *instanceFilename, Model &model) {
 
     g_backend->CreateMesh(model);
 }

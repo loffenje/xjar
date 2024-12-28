@@ -14,9 +14,13 @@ namespace xjar {
 static constexpr u32 MAX_LODS = 8;
 static constexpr u32 MAX_STREAMS = 8;
 
+// universal structure to keep the relevant data for frame
 struct FrameStatus {
     b32   success;
-    void *data;
+
+    // Vulkan stuff
+    void *commandBuffer;
+    u32   currentImage;
 };
 
 struct GPU_SceneData {
@@ -39,12 +43,14 @@ struct Vertex3D {
     glm::vec2 texcoord;
 };
 
-struct MeshFormat {
+struct Mesh {
     u32 lodNum;
     u32 streamNum;
     u32 materialID;
     u32 meshSize;
     u32 vertexCount;
+    u32 indexOffset;
+    u32 vertexOffset;
     u32 lodOffset[MAX_LODS];
     u64 streamOffset[MAX_STREAMS];
     u32 streamElementSize[MAX_STREAMS];
@@ -69,6 +75,16 @@ struct Material {
 struct TriangleMesh {
     std::vector<u32> indexData;
     std::vector<f32> vertexData;
+    std::vector<Mesh> meshes;
+};
+
+struct InstanceData {
+    u32 meshIndex;
+    u32 materialIndex;
+    u32 LOD;
+    u32 indexOffset;
+    u32 vertexOffset;
+    u32 transformIndex;
 };
 
 struct Model {
@@ -76,6 +92,15 @@ struct Model {
     glm::mat4    localTransform;
     TriangleMesh mesh;
     void        *handle; // the actual handle to the mesh with vao, vbo, ebo
+};
+
+struct UniformSceneObject {
+    glm::mat4 view;
+    glm::mat4 projection;
+};
+
+struct PushConstantData {
+    glm::mat4 model;
 };
 
 }

@@ -33,10 +33,15 @@ struct Vulkan_RenderDevice {
     VkQueue          presentQueue;
     VkSurfaceKHR     surface;
     VkCommandPool    commandPool;
+    VkFormat         swapchainImageFormat;
 };
 
 QueueFamily             FindQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface);
 SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice device, VkSurfaceKHR surface);
+
+VkFormat FindSupportedFormat(VkPhysicalDevice physicalDevice, const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+
+VkFormat FindDepthFormat(VkPhysicalDevice physicalDevice);
 
 Vulkan_RenderDevice CreateRenderDevice(const char *appName, const char *engineName);
 void                DestroyRenderDevice(Vulkan_RenderDevice *rd);
@@ -58,8 +63,9 @@ void CreateBuffer(Vulkan_RenderDevice  *rd,
 
 VkCommandBuffer BeginImmediateCommands(Vulkan_RenderDevice *rd);
 void            EndImmediateCommands(Vulkan_RenderDevice *rd, VkCommandBuffer cmdbuf);
+void            UploadBufferData(Vulkan_RenderDevice *rd, const VkDeviceMemory &memory, VkDeviceSize deviceOffset, const void *data, const size_t dataSize);
 
-void TransitionImageLayout(VkCommandBuffer      cmdbuf,
+    void TransitionImageLayout(VkCommandBuffer      cmdbuf,
                            VkImage              image,
                            VkFormat             format,
                            VkImageLayout        oldLayout,

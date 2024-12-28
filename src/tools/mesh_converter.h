@@ -6,7 +6,7 @@
 #include <assimp/Importer.hpp>
 
 namespace {
-std::vector<xjar::MeshFormat> g_meshes;
+std::vector<xjar::Mesh> g_meshes;
 std::vector<u32>        g_indexData;
 std::vector<f32>        g_vertexData;
 u32                     g_indexOffset;
@@ -20,7 +20,7 @@ constexpr char cmdExportNormals[] = "-n";
 
 }
 
-xjar::MeshFormat ConvertAIMesh(const aiMesh *m) {
+xjar::Mesh ConvertAIMesh(const aiMesh *m) {
     const bool hasTexCoords = m->HasTextureCoords(0);
 
     const u32 numIndices = m->mNumFaces * 3;
@@ -50,12 +50,14 @@ xjar::MeshFormat ConvertAIMesh(const aiMesh *m) {
 
     }
 
-    const xjar::MeshFormat result = {
+    const xjar::Mesh result = {
         .lodNum = 1,
         .streamNum = 1,
         .materialID = 0,
         .meshSize = meshSize,
         .vertexCount = m->mNumVertices,
+        .indexOffset = g_indexOffset,
+        .vertexOffset = g_vertexOffset,
         .lodOffset = {g_indexOffset * sizeof(u32), (g_indexOffset + numIndices) * sizeof(u32)},
         .streamOffset = {g_vertexOffset * streamElementSize},
         .streamElementSize = streamElementSize};
@@ -76,13 +78,13 @@ void SaveMeshes(FILE *f) {
     xjar::MeshHdr hdr = {
         .magicValue = 0xdeadbeef,
         .meshNum = (u32)g_meshes.size(),
-        .dataStartOffset = (u32)(sizeof(xjar::MeshHdr) + g_meshes.size() * sizeof(xjar::MeshFormat)),
+        .dataStartOffset = (u32)(sizeof(xjar::MeshHdr) + g_meshes.size() * sizeof(xjar::Mesh)),
         .indexDataSize = (u32)(g_indexData.size() * sizeof(u32)),
         .vertexDataSize = (u32)(g_vertexData.size() * sizeof(f32))
     };
 
     fwrite(&hdr, 1, sizeof(hdr), f);
-    fwrite(g_meshes.data(), hdr.meshNum, sizeof(xjar::MeshFormat), f);
+    fwrite(g_meshes.data(), hdr.meshNum, sizeof(xjar::Mesh), f);
     fwrite(g_indexData.data(), 1, hdr.indexDataSize, f);
     fwrite(g_vertexData.data(), 1, hdr.vertexDataSize, f);
 
@@ -107,7 +109,7 @@ void LoadFile(const char *filename) {
     }
 }
 
-void MeshConvert(const char *inputFile, const char *outputFile, bool exportTexcoords, bool exportNormals) {
+void MeshConvert(const char *inputFile, const char *outputMeshFile, const char *outputInstanceDataFile, bool exportTexcoords, bool exportNormals) {
 
     if (exportTexcoords) {
         g_numElementsToStore += 2;
@@ -120,7 +122,29 @@ void MeshConvert(const char *inputFile, const char *outputFile, bool exportTexco
 
     LoadFile(inputFile);
 
-    FILE *output = fopen(outputFile, "wb");
-    SaveMeshes(output);
-    fclose(output);
+    FILE *outputMesh = fopen(outputMeshFile, "wb");
+    SaveMeshes(outputMesh);
+
+    fclose(outputMesh);
+
+    FILE *outputInstanceData = fopen(outputInstanceDataFile, "wb");
+
+    std::vector<xjar::InstanceData> instanceData;
+
+    g_vertexOffset = 0;
+    for (u32 i = 0; i < g_meshes.size(); i++) {
+        instanceData.push_back(xjar::InstanceData {
+            .meshIndex = (u32) i,
+            .materialIndex = 0,
+            .LOD = 0,
+            .indexOffset = g_meshes[i].indexOffset,
+            .vertexOffset = g_vertexOffset,
+            .transformIndex = 0
+        });
+
+        g_vertexOffset += g_meshes[i].vertexCount;
+    }
+
+    fwrite(instanceData.data(), instanceData.size(), sizeof(xjar::InstanceData), outputInstanceData);
+    fclose(outputInstanceData);
 }
