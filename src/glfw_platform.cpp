@@ -141,7 +141,7 @@ int main() {
     g_FpsCamera.Setup(glm::vec3(0.0f, 0.0f, -10.0f), glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
     auto &renderSystem = xjar::RenderSystem::Instance();
-
+    auto &textureManager = xjar::TextureManager::Instance();
     renderSystem.Startup();
 
     f32 frameTime = static_cast<f32>(glfwGetTime());
@@ -150,13 +150,13 @@ int main() {
     
     auto         &world = xjar::World::Instance();
     xjar::Entity *ent = world.CreateEntity();
-    ent->model.texture = xjar::TextureManager::Instance().Acquire("assets/wood.jpg");
+    ent->model.texture = textureManager.Acquire("assets/wood.jpg");
 
     xjar::Entity *ent2 = world.CreateEntity();
-    ent2->model.texture = xjar::TextureManager::Instance().Acquire("assets/wood.jpg");
+    ent2->model.texture = textureManager.Acquire("assets/wood.jpg");
 
-    renderSystem.meshFeature->LoadModel("assets/test.mesh", "assets/test.mesh.instance", ent->model);
-    renderSystem.meshFeature->LoadModel("assets/test.mesh", "assets/test.mesh.instance", ent2->model);
+    renderSystem.LoadModel("assets/test.mesh", "assets/test.mesh.instance", ent->model);
+    renderSystem.LoadModel("assets/test.mesh", "assets/test.mesh.instance", ent2->model);
 
     memset(g_gameInput, 0, sizeof(xjar::GameInput));
 
@@ -192,7 +192,6 @@ int main() {
         xjar::GPU_SceneData sceneData{};
         sceneData.viewMat = g_FpsCamera.GetViewMatrix();
         sceneData.projMat = glm::perspective(glm::radians(45.0f), (f32)windowObj.width / (f32)windowObj.height, 0.1f, 1000.0f);
-
         auto frame = renderSystem.BeginFrame();
         if (frame.success) {
 
@@ -200,8 +199,10 @@ int main() {
              // NOTE: here we should call features that use default render pass
             renderSystem.EndDefaultPass();
             
+            renderSystem.BeginMultiMeshFeaturePass(frame);
             // NOTE: and here each feature will be used it's own render pass
-            renderSystem.meshFeature->DrawEntities(frame, sceneData, {ent, ent2});
+            renderSystem.DrawEntities(frame, sceneData, {ent, ent2});
+            renderSystem.EndMultiMeshFeaturePass(frame);
 
             renderSystem.EndFrame();
         }
@@ -212,6 +213,8 @@ int main() {
         g_prevInput = tempInput;
     }
 
+
+    textureManager.Release("assets/wood.jpg");
 
     renderSystem.Shutdown();
 

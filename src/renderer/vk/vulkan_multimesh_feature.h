@@ -23,8 +23,8 @@ struct ModelResources {
 
     VkBuffer                        m_storageBuffer;
     VkDeviceMemory                  m_storageBufferMemory;
-    VkBuffer       m_materialBuffer;
-    VkDeviceMemory m_materialBufferMemory;
+    VkBuffer                        m_materialBuffer;
+    VkDeviceMemory                  m_materialBufferMemory;
 
     // for each swapchain image
     std::vector<VkBuffer>       m_indirectBuffers;
@@ -33,16 +33,37 @@ struct ModelResources {
     std::vector<VkDeviceMemory> m_instanceBuffersMemory;
 };
 
-class Vulkan_MultiMeshFeature final : public MeshFeature {
-public:
-    void Init(void *device, void *swapchain) override;
-    void LoadModel(const char *meshFilename, const char *instanceFilename, Model &model) override;
-    void DrawEntities(FrameStatus frame, const GPU_SceneData &sceneData, std::initializer_list<Entity *> entities) override;
-    void OnResize() override;
-private:
-    void  LoadMesh(const char *filename, Model &model);
-    void  LoadInstanceData(const char *filename, ModelResources &res);
 
+inline void DestroyModelResources(VkDevice device, ModelResources &res) {
+
+    vkDestroyBuffer(device, res.m_storageBuffer, nullptr);
+    vkFreeMemory(device, res.m_storageBufferMemory, nullptr);
+
+    vkDestroyBuffer(device, res.m_materialBuffer, nullptr);
+    vkFreeMemory(device, res.m_materialBufferMemory, nullptr);
+
+    for (size_t i = 0; i < res.m_indirectBuffers.size(); i++) {
+        vkDestroyBuffer(device, res.m_indirectBuffers[i], nullptr);
+        vkFreeMemory(device, res.m_indirectBuffersMemory[i], nullptr);
+    }
+
+    for (size_t i = 0; i < res.m_instanceBuffers.size(); i++) {
+        vkDestroyBuffer(device, res.m_instanceBuffers[i], nullptr);
+        vkFreeMemory(device, res.m_instanceBuffersMemory[i], nullptr);
+    }
+}
+
+class Vulkan_MultiMeshFeature final {
+public:
+    void Init(Vulkan_RenderDevice *device, Vulkan_Swapchain *swapchain);
+    void CreateModel(std::vector<InstanceData> &instances, Model &model);
+    void DrawEntities(FrameStatus frame, const GPU_SceneData &sceneData, std::initializer_list<Entity *> entities);
+    void OnResize(Vulkan_Swapchain *swapchain);
+    void BeginPass(FrameStatus frame);
+    void EndPass(FrameStatus frame);
+    void Destroy();
+
+private:
     void CreatePipeline();
     void CreateColorAndDepthRenderPass();
     void CreateDepthResources();
@@ -68,6 +89,7 @@ private:
     std::vector<VkDeviceMemory> m_uniformBuffersMemory;
 
     std::deque<ModelResources>  m_models;
+    u32                         m_modelCount = 0;
     int                         m_modelID = 0;
 
 };

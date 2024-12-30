@@ -4,6 +4,8 @@
 
 namespace xjar {
 
+struct Entity;
+
 class RendererBackend {
 public:
     virtual void        CreateTexture(const void *pixels, Texture *texture) = 0;
@@ -12,7 +14,9 @@ public:
     virtual FrameStatus BeginFrame() = 0;
     virtual void        EndFrame() = 0;
 
-    virtual void CreateMesh(Model &model) = 0;
+    virtual void DrawEntities(FrameStatus frame, const GPU_SceneData &sceneData, std::initializer_list<Entity *> entities) = 0;
+
+    virtual void CreateModel(std::vector<InstanceData> &instances, Model &model) = 0;
     
     virtual void *GetDefaultRenderPass() {
         return nullptr;
@@ -36,6 +40,12 @@ public:
     virtual void BeginDefaultPass() {
     }
     virtual void EndDefaultPass() {
+    }
+    
+    virtual void BeginMultiMeshFeaturePass(FrameStatus frame) {
+    }
+    
+    virtual void EndMultiMeshFeaturePass(FrameStatus frame) {
     }
 
     virtual ~RendererBackend() = default;

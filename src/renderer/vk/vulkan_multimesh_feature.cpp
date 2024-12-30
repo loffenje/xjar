@@ -20,9 +20,9 @@ namespace xjar {
 
 static u32 g_offsetAlignment;
 
-void Vulkan_MultiMeshFeature::Init(void *device, void *swapchain) {
-    m_renderDevice = (Vulkan_RenderDevice *)device;
-    m_swapchain = (Vulkan_Swapchain *)swapchain;
+void Vulkan_MultiMeshFeature::Init(Vulkan_RenderDevice *device, Vulkan_Swapchain *swapchain) {
+    m_renderDevice = device;
+    m_swapchain = swapchain;
 
     CreateColorAndDepthRenderPass();
     CreateDepthResources();
@@ -31,12 +31,37 @@ void Vulkan_MultiMeshFeature::Init(void *device, void *swapchain) {
     CreatePipeline();
     CreateUniformBuffers();
 
-    m_models.resize(1024);
+    m_models.resize(32);
 
     VkPhysicalDeviceProperties devProps;
     vkGetPhysicalDeviceProperties(m_renderDevice->physicalDevice, &devProps);
 
     g_offsetAlignment = static_cast<u32>(devProps.limits.minStorageBufferOffsetAlignment);
+}
+
+void Vulkan_MultiMeshFeature::Destroy() {
+    vkDestroyRenderPass(m_renderDevice->device, m_renderPass, nullptr);
+
+    vkDestroyImageView(m_renderDevice->device, m_depthImageView, nullptr);
+    vkDestroyImage(m_renderDevice->device, m_depthImage, nullptr);
+    vkFreeMemory(m_renderDevice->device, m_depthImageMemory, nullptr);
+  
+    u32 imageCount = m_swapchain->images.size();
+    for (u32 i = 0; i < imageCount; i++) {
+        vkDestroyFramebuffer(m_renderDevice->device, m_framebuffers[i], nullptr);
+        m_dsAllocators[i].DestroyPools(m_renderDevice->device);
+
+        vkDestroyBuffer(m_renderDevice->device, m_uniformBuffers[i], nullptr);
+        vkFreeMemory(m_renderDevice->device, m_uniformBuffersMemory[i], nullptr);
+
+    }
+
+    for (u32 i = 0; i < m_modelCount; i++) {
+        DestroyModelResources(m_renderDevice->device, m_models[i]);
+    }
+
+    vkDestroyDescriptorSetLayout(m_renderDevice->device, m_dsLayout, nullptr);
+    m_pipeline.Destroy(m_renderDevice->device);
 }
 
 void Vulkan_MultiMeshFeature::CreateColorAndDepthRenderPass() {
@@ -102,74 +127,31 @@ void Vulkan_MultiMeshFeature::CreateColorAndDepthRenderPass() {
     }
 }
 
-void Vulkan_MultiMeshFeature::OnResize() {
+void Vulkan_MultiMeshFeature::OnResize(Vulkan_Swapchain *swapchain) {
+    auto &window = GetWindow();
+    m_swapchain = swapchain;
 
+    vkDestroyImageView(m_renderDevice->device, m_depthImageView, nullptr);
+    u32 imageCount = m_swapchain->images.size();
+    for (u32 i = 0; i < imageCount; i++) {
+        vkDestroyFramebuffer(m_renderDevice->device, m_framebuffers[i], nullptr);
+    }
+
+    CreateDepthResources();
+    CreateFramebuffers();
 }
 
 
-void Vulkan_MultiMeshFeature::LoadMesh(const char *filename, Model &model) {
-    FILE *file = fopen(filename, "rb");
-    if (!file) {
-        fprintf(stderr, "Failed to load mesh %s\n", filename);
-        exit(1);
-    }
-
-    MeshHdr hdr;
-    if (fread(&hdr, 1, sizeof(hdr), file) != sizeof(hdr)) {
-        fprintf(stderr, "Unable to read %s file\n", filename);
-        exit(1);
-    }
-
-    const u32         meshNum = hdr.meshNum;
-    model.mesh.meshes.resize(meshNum);
-
-    if (fread(model.mesh.meshes.data(), sizeof(Mesh), meshNum, file) != meshNum) {
-        fprintf(stderr, "Unable to read meshes from %s file\n", filename);
-        exit(1);
-    }
-
-    const u32 indexDataSize = hdr.indexDataSize;
-    const u32 vertexDataSize = hdr.vertexDataSize;
-    model.mesh.indexData.resize(indexDataSize / sizeof(u32));
-    model.mesh.vertexData.resize(vertexDataSize / sizeof(f32));
-
-    if (fread(model.mesh.indexData.data(), 1, indexDataSize, file) != indexDataSize ||
-        fread(model.mesh.vertexData.data(), 1, vertexDataSize, file) != vertexDataSize) {
-        fprintf(stderr, "Unable to read geometry\n");
-        exit(1);
-    }
-}
-
-void Vulkan_MultiMeshFeature::LoadInstanceData(const char *filename, ModelResources &res) {
-    FILE *file = fopen(filename, "rb");
-    if (!file) {
-        fprintf(stderr, "Failed to load instance %s\n", filename);
-        exit(1);
-    }
-
-    fseek(file, 0, SEEK_END);
-    size_t fsize = ftell(file);
-    fseek(file, 0, SEEK_SET);
-    res.m_maxInstanceCount = static_cast<u32>(fsize / sizeof(InstanceData));
-    res.m_instances.resize(res.m_maxInstanceCount);
-
-    if (fread(res.m_instances.data(), sizeof(InstanceData), res.m_maxInstanceCount, file) != res.m_maxInstanceCount) {
-        fprintf(stderr, "Unable to read instance data\n");
-        exit(1);
-    }
-
-    fclose(file);
-}
-
-void Vulkan_MultiMeshFeature::LoadModel(const char *meshFilename, const char *instanceFilename, Model &model) {
+void Vulkan_MultiMeshFeature::CreateModel(std::vector<InstanceData> &instanceData, Model &model) {
     int *handle = new int;
     *handle = m_modelID;
 
     model.handle = handle;
     ModelResources &res = m_models[m_modelID++];
+    m_modelCount++;
 
-    LoadMesh(meshFilename, model);
-    LoadInstanceData(instanceFilename, res);
+    res.m_maxInstanceCount = instanceData.size();
+    res.m_instances = std::move(instanceData);
 
     size_t vertexDataSize = model.mesh.vertexData.size() * sizeof(model.mesh.vertexData[0]);
     size_t indexDataSize = model.mesh.indexData.size() * sizeof(model.mesh.indexData[0]);
@@ -434,10 +416,7 @@ void Vulkan_MultiMeshFeature::CreatePipeline() {
     vkDestroyShaderModule(m_renderDevice->device, vertShaderModule, nullptr);
 }
 
-void Vulkan_MultiMeshFeature::DrawEntities(FrameStatus frame, const GPU_SceneData &sceneData, std::initializer_list<Entity *> entities) {
-
-  //  m_dsAllocators[frame.currentImage].ClearPools(m_renderDevice->device);
-
+void Vulkan_MultiMeshFeature::BeginPass(FrameStatus frame) {
     VkCommandBuffer *vkcmdbuf = (VkCommandBuffer *)frame.commandBuffer;
 
     std::array<VkClearValue, 2> clearValues {};
@@ -468,10 +447,23 @@ void Vulkan_MultiMeshFeature::DrawEntities(FrameStatus frame, const GPU_SceneDat
     vkCmdSetScissor(*vkcmdbuf, 0, 1, &scissor);
 
     m_pipeline.Bind(*vkcmdbuf);
+}
+
+void Vulkan_MultiMeshFeature::EndPass(FrameStatus frame) {
+    VkCommandBuffer *vkcmdbuf = (VkCommandBuffer *)frame.commandBuffer;
+
+    vkCmdEndRenderPass(*vkcmdbuf);
+}
+
+void Vulkan_MultiMeshFeature::DrawEntities(FrameStatus frame, const GPU_SceneData &sceneData, std::initializer_list<Entity *> entities) {
+
+    VkCommandBuffer *vkcmdbuf = (VkCommandBuffer *)frame.commandBuffer;
 
     UniformSceneObject uniformScene {};
     uniformScene.projection = sceneData.projMat;
     uniformScene.view = sceneData.viewMat;
+
+    uniformScene.projection[1][1] *= -1;
 
     UploadBufferData(m_renderDevice, m_uniformBuffersMemory[frame.currentImage], 0, &uniformScene, sizeof(UniformSceneObject));
 
@@ -490,8 +482,6 @@ void Vulkan_MultiMeshFeature::DrawEntities(FrameStatus frame, const GPU_SceneDat
 
         vkCmdDrawIndirect(*vkcmdbuf, res.m_indirectBuffers[frame.currentImage], 0, res.m_maxInstanceCount, sizeof(VkDrawIndirectCommand));
     }
-
-    vkCmdEndRenderPass(*vkcmdbuf);
 }
 
 }

@@ -30,6 +30,9 @@ void Vulkan_Backend::OnInit() {
     m_renderDevice = CreateRenderDevice("xjar", "xjarEngine");
     RecreateSwapchain(); 
     CreateBuffers();
+
+    m_multiMeshFeature = new Vulkan_MultiMeshFeature();
+    m_multiMeshFeature->Init(&m_renderDevice, m_swapchain.get());
 }
 
 void Vulkan_Backend::CreateBuffers() {
@@ -50,6 +53,8 @@ void Vulkan_Backend::CreateBuffers() {
 
 void Vulkan_Backend::OnDestroy() {
     vkDeviceWaitIdle(m_renderDevice.device);
+
+    m_multiMeshFeature->Destroy();
 #if 0
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         m_frameDescriptors[i].DestroyPools(m_renderDevice.device);
@@ -201,12 +206,18 @@ void Vulkan_Backend::CreateTexture(const void *pixels, Texture *texture) {
     }
 }
 
+void Vulkan_Backend::CreateModel(std::vector<InstanceData> &instances, Model &model) {
+    m_multiMeshFeature->CreateModel(instances, model);
+}
+
 void Vulkan_Backend::DestroyTexture(Texture *texture) {
     Vulkan_Texture *vktexture = (Vulkan_Texture *)texture->handle;
 
     vkDestroyImageView(m_renderDevice.device, vktexture->view, nullptr);
     vkDestroyImage(m_renderDevice.device, vktexture->image, nullptr);
     vkFreeMemory(m_renderDevice.device, vktexture->memory, nullptr);
+    //TODO: sampler can be shared between textures, do smart delete
+    vkDestroySampler(m_renderDevice.device, vktexture->sampler, nullptr);
 
     delete vktexture;
 }
@@ -291,7 +302,9 @@ void Vulkan_Backend::EndFrame() {
     auto &window = GetWindow();
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || window.resized) {
         window.resized = false;
+
         RecreateSwapchain();
+        m_multiMeshFeature->OnResize(m_swapchain.get());
     } else if (result != VK_SUCCESS) {
         fprintf(stderr, "Failed to present swapchain image\n");
         exit(1);
@@ -300,8 +313,16 @@ void Vulkan_Backend::EndFrame() {
     m_currentFrameIndex = (m_currentFrameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
-void  Vulkan_Backend::CreateMesh(Model &model) {
+void Vulkan_Backend::BeginMultiMeshFeaturePass(FrameStatus frame) {
+    m_multiMeshFeature->BeginPass(frame);
+}
 
+void Vulkan_Backend::EndMultiMeshFeaturePass(FrameStatus frame) {
+    m_multiMeshFeature->EndPass(frame);
+}
+
+void Vulkan_Backend::DrawEntities(FrameStatus frame, const GPU_SceneData &sceneData, std::initializer_list<Entity *> entities) {
+    m_multiMeshFeature->DrawEntities(frame, sceneData, entities);
 }
 
 void Vulkan_Backend::BeginDefaultPass() {

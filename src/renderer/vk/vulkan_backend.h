@@ -2,6 +2,7 @@
 #include "vulkan_render_device.h"
 #include "vulkan_pipeline.h"
 #include "vulkan_swapchain.h"
+#include "vulkan_multimesh_feature.h"
 
 #include <memory>
 #include <vector>
@@ -20,9 +21,13 @@ public:
     void        DestroyTexture(Texture *texture) override;
     FrameStatus BeginFrame() override;
     void        EndFrame() override;
-    void        CreateMesh(Model &model) override;
+    void        DrawEntities(FrameStatus frame, const GPU_SceneData &sceneData, std::initializer_list<Entity *> entities) override;
     void        BeginDefaultPass() override;
     void        EndDefaultPass() override;
+    void        BeginMultiMeshFeaturePass(FrameStatus frame) override;
+    void        EndMultiMeshFeaturePass(FrameStatus frame) override;
+    void        CreateModel(std::vector<InstanceData> &instances, Model &model) override;
+
     void        ClearColor(f32 r, f32 g, f32 b, f32 a) override;
     void       *GetDefaultRenderPass() override;
     void       *GetRenderDevice() override;
@@ -34,7 +39,9 @@ public:
 
     VkResult AcquireNextImage(u32 *imageIndex);
 
+
 private:
+    Vulkan_MultiMeshFeature *           m_multiMeshFeature;
     Vulkan_RenderDevice                 m_renderDevice;
     std::unique_ptr<Vulkan_Swapchain>   m_swapchain;
     std::vector<VkCommandBuffer>        m_commandBuffers;

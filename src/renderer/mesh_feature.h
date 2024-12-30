@@ -14,7 +14,6 @@ public:
     virtual void LoadModel(const char *meshFilename, const char *instanceFilename, Model &model) {}
     virtual void DrawEntities(FrameStatus frame, const GPU_SceneData &sceneData, std::initializer_list<Entity *> entities) = 0;
     virtual void OnResize() {}
-
     virtual ~MeshFeature() = default;
 };
 
