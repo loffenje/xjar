@@ -2,6 +2,7 @@
 
 #include "vulkan_swapchain.h"
 #include "vulkan_ds.h"
+#include "vulkan_texture.h"
 #include <glm/mat4x4.hpp>
 #include <array>
 #include "window.h"
@@ -18,13 +19,6 @@ namespace xjar {
 //TODO: set it from renderSystem globally for the scene / via default pass ?
 
 VkDescriptorSetLayout g_dsSceneLayout;
-
-struct Vulkan_Texture {
-    VkImage        image;
-    VkDeviceMemory memory;
-    VkImageView    view;
-    VkSampler      sampler;
-};
 
 void Vulkan_Backend::OnInit() {
     m_renderDevice = CreateRenderDevice("xjar", "xjarEngine");
@@ -206,8 +200,11 @@ void Vulkan_Backend::CreateTexture(const void *pixels, Texture *texture) {
     }
 }
 
-void Vulkan_Backend::CreateModel(std::vector<InstanceData> &instances, Model &model) {
-    m_multiMeshFeature->CreateModel(instances, model);
+void Vulkan_Backend::CreateModel(std::vector<InstanceData> &instances,
+                const std::vector<MaterialDescr> &materials,
+                const std::vector<std::string>   &textureFilenames,
+                Model                            &model) {
+    m_multiMeshFeature->CreateModel(instances, materials, textureFilenames, model);
 }
 
 void Vulkan_Backend::DestroyTexture(Texture *texture) {
@@ -219,7 +216,7 @@ void Vulkan_Backend::DestroyTexture(Texture *texture) {
     //TODO: sampler can be shared between textures, do smart delete
     vkDestroySampler(m_renderDevice.device, vktexture->sampler, nullptr);
 
-    delete vktexture;
+     free(vktexture);
 }
 
 void Vulkan_Backend::RecreateSwapchain() {

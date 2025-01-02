@@ -5,6 +5,7 @@
 #include "renderer/camera.h"
 #include "vulkan_pipeline.h"
 #include "vulkan_ds.h"
+#include "material_system.h"
 #include <unordered_set>
 
 namespace xjar {
@@ -31,6 +32,7 @@ struct ModelResources {
     std::vector<VkDeviceMemory> m_indirectBuffersMemory;
     std::vector<VkBuffer>       m_instanceBuffers;
     std::vector<VkDeviceMemory> m_instanceBuffersMemory;
+    std::vector<std::string>    m_loadedTextures;
 };
 
 
@@ -56,7 +58,11 @@ inline void DestroyModelResources(VkDevice device, ModelResources &res) {
 class Vulkan_MultiMeshFeature final {
 public:
     void Init(Vulkan_RenderDevice *device, Vulkan_Swapchain *swapchain);
-    void CreateModel(std::vector<InstanceData> &instances, Model &model);
+    void CreateModel(std::vector<InstanceData> &instances,
+        const std::vector<MaterialDescr> &materials, 
+        const std::vector<std::string> &textureFilenames,
+        Model &model);
+
     void DrawEntities(FrameStatus frame, const GPU_SceneData &sceneData, std::initializer_list<Entity *> entities);
     void OnResize(Vulkan_Swapchain *swapchain);
     void BeginPass(FrameStatus frame);
@@ -84,6 +90,10 @@ private:
     VkImage        m_depthImage;
     VkImageView    m_depthImageView;
     VkDeviceMemory m_depthImageMemory;
+
+    VkSampler                   m_defaultSamplerLinear;
+    VkSampler                   m_defaultSamplerNearest;
+
 
     std::vector<VkBuffer>       m_uniformBuffers;
     std::vector<VkDeviceMemory> m_uniformBuffersMemory;

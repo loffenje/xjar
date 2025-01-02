@@ -2,6 +2,7 @@
 
 #include "resource_types.h"
 #include "renderer_types.h"
+#include "material_system.h"
 #include <vector>
 
 namespace xjar {
@@ -25,13 +26,14 @@ public:
     void        EndMultiMeshFeaturePass(FrameStatus frame);
 
     void        Shutdown();
-    void        LoadModel(const char *meshFilename, const char *instanceFilename, Model &model);
+    void        LoadModel(const char *meshFilename, const char *instanceFilename, const char *materialFilename, Model &model);
     void        CreateTexture(const void *pixels, Texture *texture);
     void        DestroyTexture(Texture *texture);
     void        DrawEntities(FrameStatus frame, const GPU_SceneData &sceneData, std::initializer_list<Entity *> entities);
 
 private:
     void LoadInstanceData(const char *filename, std::vector<InstanceData> &instances);
+    void LoadMaterials(const char *fileName, std::vector<MaterialDescr> &materials, std::vector<std::string> &files);
 
     RenderSystem() = default;
 };

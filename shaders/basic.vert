@@ -1,6 +1,9 @@
 #version 460
 
-layout(location = 0) out vec3 outColor;
+#extension GL_EXT_shader_explicit_arithmetic_types_int64: enable
+
+layout(location = 0) out vec3 outUVW;
+layout(location = 1) out flat uint outMatIndex;
 
 struct ImDrawVert   { 
     float x, y, z;
@@ -38,10 +41,8 @@ void main()
 	uint refIdx = instance.indexOffset + gl_VertexIndex;
 	ImDrawVert v = sbo.data[ibo.data[refIdx] + instance.vertexOffset];
 
-	outColor = normalize(vec3(v.x, v.y, v.z));
-
-//	mat4 xfrm(1.0); // = transpose(drawDataBuffer.data[gl_BaseInstance].xfrm);
-
 	gl_Position = ubo.projection * ubo.view * push.model * vec4(v.x, v.y, v.z, 1.0);
+    outMatIndex = instance.material;
+    outUVW = vec3(v.u, v.v, 1.0);
 }
 

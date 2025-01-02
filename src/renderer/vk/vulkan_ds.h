@@ -13,7 +13,7 @@ namespace xjar {
 struct DescriptorLayoutBuilder {
     std::vector<VkDescriptorSetLayoutBinding> bindings;
 
-    void AddBinding(u32 binding, VkDescriptorType type, VkShaderStageFlags shaderStages);
+    void AddBinding(u32 binding, VkDescriptorType type, VkShaderStageFlags shaderStages, u32 dsCount = 1);
     void Clear();
 
     VkDescriptorSetLayout Build(VkDevice device, VkDescriptorSetLayoutCreateFlags flags = 0, void *next = nullptr);
@@ -24,7 +24,7 @@ struct DescriptorWriter {
     std::deque<VkDescriptorBufferInfo> bufferInfos;
     std::vector<VkWriteDescriptorSet>  writes;
 
-    void WriteImage(int binding, VkImageView imageView, VkSampler sampler, VkImageLayout imageLayout, VkDescriptorType type);
+    void WriteImage(int binding, VkImageView imageView, VkSampler sampler, VkImageLayout imageLayout, VkDescriptorType type, u32 descriptorCount = 1);
     void WriteBuffer(int binding, VkBuffer buffer, size_t size, size_t offset, VkDescriptorType type);
     void Clear();
     void UpdateSet(VkDevice device, VkDescriptorSet ds);

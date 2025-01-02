@@ -22,7 +22,7 @@ public:
     const Texture &GetDefaultTexture();
     const Texture &Acquire(const std::string &name, b32 autorelease = true);
     void           Release(const std::string &name);
-
+    static std::optional<Texture> LoadTexture(const std::string &textureName);
     TextureManager(const TextureManager &) = delete;
     TextureManager &operator=(const TextureManager &) = delete;
 

@@ -4,9 +4,13 @@
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 #include <assimp/Importer.hpp>
+#include "material_system.h"
 
 namespace {
-std::vector<xjar::Mesh> g_meshes;
+std::vector<xjar::Mesh>             g_meshes;
+std::vector<xjar::MaterialDescr>    g_materials;
+std::vector<std::string>            g_matFiles;
+
 std::vector<u32>        g_indexData;
 std::vector<f32>        g_vertexData;
 u32                     g_indexOffset;
@@ -18,6 +22,55 @@ u32                     g_numElementsToStore = 3; // by default only vertex elem
 constexpr char cmdExportTexcoords[] = "-t";
 constexpr char cmdExportNormals[] = "-n";
 
+}
+
+inline int AddUnique(std::vector<std::string> &files, const std::string &file) {
+    if (file.empty())
+        return -1;
+
+    auto i = std::find(std::begin(files), std::end(files), file);
+
+    if (i == files.end()) {
+        files.push_back(file);
+
+        return (int)files.size() - 1;
+    }
+
+    return (int)std::distance(files.begin(), i);
+}
+
+xjar::MaterialDescr ConvertAIMaterial(const aiMaterial *mat, const char *dir) {
+    xjar::MaterialDescr descr;
+
+    aiColor4D color;
+    if (aiGetMaterialColor(mat, AI_MATKEY_COLOR_AMBIENT, &color) == AI_SUCCESS) {
+        descr.emissiveColor = {color.r, color.g, color.b, color.a};
+        if (descr.emissiveColor.w > 1.0f)
+            descr.emissiveColor.w = 1.0f;
+    }
+
+    if (aiGetMaterialColor(mat, AI_MATKEY_COLOR_DIFFUSE, &color) == AI_SUCCESS) {
+        descr.albedoColor = {color.r, color.g, color.b, color.a};
+        if (descr.albedoColor.w > 1.0f)
+            descr.albedoColor.w = 1.0f;
+    }
+    aiString         path;
+    aiTextureMapping mapping;
+    u32              uvIndex = 0;
+    f32              blend = 1.0f;
+    aiTextureOp      textureOp = aiTextureOp_Add;
+    aiTextureMapMode textureMapMode[2] = {aiTextureMapMode_Wrap, aiTextureMapMode_Wrap};
+    u32              textureFlags = 0;
+
+    if (aiGetMaterialTexture(mat, aiTextureType_DIFFUSE, 0, &path, &mapping, &uvIndex, &blend, &textureOp, textureMapMode, &textureFlags) == AI_SUCCESS) {
+        std::string fullpath = dir;
+        fullpath.append("/");
+        fullpath.append(path.C_Str());
+
+        descr.albedoMap = AddUnique(g_matFiles, fullpath);
+    }
+
+    return descr;
 }
 
 xjar::Mesh ConvertAIMesh(const aiMesh *m) {
@@ -74,23 +127,7 @@ xjar::Mesh ConvertAIMesh(const aiMesh *m) {
     return result;
 }
 
-void SaveMeshes(FILE *f) {
-    xjar::MeshHdr hdr = {
-        .magicValue = 0xdeadbeef,
-        .meshNum = (u32)g_meshes.size(),
-        .dataStartOffset = (u32)(sizeof(xjar::MeshHdr) + g_meshes.size() * sizeof(xjar::Mesh)),
-        .indexDataSize = (u32)(g_indexData.size() * sizeof(u32)),
-        .vertexDataSize = (u32)(g_vertexData.size() * sizeof(f32))
-    };
-
-    fwrite(&hdr, 1, sizeof(hdr), f);
-    fwrite(g_meshes.data(), hdr.meshNum, sizeof(xjar::Mesh), f);
-    fwrite(g_indexData.data(), 1, hdr.indexDataSize, f);
-    fwrite(g_vertexData.data(), 1, hdr.vertexDataSize, f);
-
-}
-
-void LoadFile(const char *filename) {
+void LoadFile(const char *filename, const char *materialDir) {
     const u32 flags = aiProcess_JoinIdenticalVertices | aiProcess_Triangulate | aiProcess_GenSmoothNormals 
         | aiProcess_PreTransformVertices | aiProcess_RemoveRedundantMaterials | aiProcess_FindDegenerates 
         | aiProcess_FindInvalidData | aiProcess_FindInstances | aiProcess_OptimizeMeshes;
@@ -107,9 +144,30 @@ void LoadFile(const char *filename) {
     for (size_t i = 0; i != scene->mNumMeshes; i++) {
         g_meshes.push_back(ConvertAIMesh(scene->mMeshes[i]));
     }
+
+    g_materials.reserve(scene->mNumMaterials);
+    for (size_t i = 0; i != scene->mNumMaterials; i++) {
+        g_materials.push_back(ConvertAIMaterial(scene->mMaterials[i], materialDir));
+    }
 }
 
-void MeshConvert(const char *inputFile, const char *outputMeshFile, const char *outputInstanceDataFile, bool exportTexcoords, bool exportNormals) {
+void SaveStringList(FILE *f, const std::vector<std::string> &lines) {
+    u32 size = (u32)lines.size();
+    fwrite(&size, sizeof(u32), 1, f);
+
+    for (const auto &s : lines) {
+        size = (u32)s.length();
+        fwrite(&size, sizeof(u32), 1, f);
+        fwrite(s.c_str(), size + 1, 1, f);
+    }
+}
+void MeshConvert(const char *inputFile,
+    const char *outputMeshFile,
+    const char *outputInstanceDataFile,
+    const char *outputMaterialFile,
+    const char *materialDir,
+    bool exportTexcoords,
+    bool exportNormals) {
 
     if (exportTexcoords) {
         g_numElementsToStore += 2;
@@ -120,11 +178,20 @@ void MeshConvert(const char *inputFile, const char *outputMeshFile, const char *
         g_exportNormals = true;
     }
 
-    LoadFile(inputFile);
+    LoadFile(inputFile, materialDir);
 
     FILE *outputMesh = fopen(outputMeshFile, "wb");
-    SaveMeshes(outputMesh);
+    xjar::MeshHdr hdr = {
+        .magicValue = 0xdeadbeef,
+        .meshNum = (u32)g_meshes.size(),
+        .dataStartOffset = (u32)(sizeof(xjar::MeshHdr) + g_meshes.size() * sizeof(xjar::Mesh)),
+        .indexDataSize = (u32)(g_indexData.size() * sizeof(u32)),
+        .vertexDataSize = (u32)(g_vertexData.size() * sizeof(f32))};
 
+    fwrite(&hdr, 1, sizeof(hdr), outputMesh);
+    fwrite(g_meshes.data(), hdr.meshNum, sizeof(xjar::Mesh), outputMesh);
+    fwrite(g_indexData.data(), 1, hdr.indexDataSize, outputMesh);
+    fwrite(g_vertexData.data(), 1, hdr.vertexDataSize, outputMesh);
     fclose(outputMesh);
 
     FILE *outputInstanceData = fopen(outputInstanceDataFile, "wb");
@@ -147,4 +214,13 @@ void MeshConvert(const char *inputFile, const char *outputMeshFile, const char *
 
     fwrite(instanceData.data(), instanceData.size(), sizeof(xjar::InstanceData), outputInstanceData);
     fclose(outputInstanceData);
+
+    FILE *outputMaterial = fopen(outputMaterialFile, "wb");
+
+    u32 matSize = (u32)g_materials.size();
+    fwrite(&matSize, sizeof(u32), 1, outputMaterial);
+    fwrite(g_materials.data(), sizeof(xjar::MaterialDescr), matSize, outputMaterial);
+    SaveStringList(outputMaterial, g_matFiles);
+    fclose(outputMaterial);
+
 }

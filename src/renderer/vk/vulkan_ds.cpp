@@ -2,10 +2,10 @@
 
 namespace xjar {
 
-void DescriptorLayoutBuilder::AddBinding(u32 binding, VkDescriptorType type, VkShaderStageFlags shaderStages) {
+void DescriptorLayoutBuilder::AddBinding(u32 binding, VkDescriptorType type, VkShaderStageFlags shaderStages, u32 dsCount) {
     VkDescriptorSetLayoutBinding b {};
     b.binding = binding;
-    b.descriptorCount = 1;
+    b.descriptorCount = dsCount;
     b.descriptorType = type;
     b.stageFlags = shaderStages;
 
@@ -35,7 +35,7 @@ VkDescriptorSetLayout DescriptorLayoutBuilder::Build(VkDevice device, VkDescript
 }
 
 
-void DescriptorWriter::WriteImage(int binding, VkImageView imageView, VkSampler sampler, VkImageLayout imageLayout, VkDescriptorType type) {
+void DescriptorWriter::WriteImage(int binding, VkImageView imageView, VkSampler sampler, VkImageLayout imageLayout, VkDescriptorType type, u32 descriptorCount) {
     VkDescriptorImageInfo &info = imageInfos.emplace_back(VkDescriptorImageInfo {
         .sampler = sampler,
         .imageView = imageView,
@@ -45,7 +45,7 @@ void DescriptorWriter::WriteImage(int binding, VkImageView imageView, VkSampler 
     write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     write.dstBinding = binding;
     write.dstSet = VK_NULL_HANDLE;
-    write.descriptorCount = 1;
+    write.descriptorCount = descriptorCount;
     write.descriptorType = type;
     write.pImageInfo = &info;
 

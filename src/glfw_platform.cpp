@@ -36,8 +36,13 @@ glm::vec2 g_lastMousePos = glm::vec2(0.0f);
 int main() {
     glfwSetErrorCallback([](int error, const char *description) { fprintf(stderr, "Error: %s\n", description); });
 
-#if 0
-    MeshConvert("assets/backpack/backpack.obj", "assets/test.mesh", "assets/test.mesh.instance", true, true);
+#if 1
+    MeshConvert("assets/backpack/backpack.obj",
+        "assets/test.mesh",
+        "assets/test.mesh.instance",
+        "assets/test.materials",
+        "assets/backpack",
+        true, true);
     #endif
 
     const u32   window_width = 1280;
@@ -155,8 +160,8 @@ int main() {
     xjar::Entity *ent2 = world.CreateEntity();
     ent2->model.texture = textureManager.Acquire("assets/wood.jpg");
 
-    renderSystem.LoadModel("assets/test.mesh", "assets/test.mesh.instance", ent->model);
-    renderSystem.LoadModel("assets/test.mesh", "assets/test.mesh.instance", ent2->model);
+    renderSystem.LoadModel("assets/test.mesh", "assets/test.mesh.instance", "assets/test.materials", ent->model);
+    renderSystem.LoadModel("assets/test.mesh", "assets/test.mesh.instance", "assets/test.materials", ent2->model);
 
     memset(g_gameInput, 0, sizeof(xjar::GameInput));
 

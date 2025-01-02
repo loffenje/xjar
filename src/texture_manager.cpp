@@ -9,8 +9,6 @@
 
 namespace xjar {
 
-constexpr u32 INVALID_TEXTURE = std::numeric_limits<u32>::max();
-
 Texture g_defaultTexture;
 
 static void CreateDefaultTexture() {
@@ -50,7 +48,7 @@ static void CreateDefaultTexture() {
     g_defaultTexture.id = INVALID_TEXTURE;
 }
 
-std::optional<Texture> LoadTexture(const std::string &textureName) {
+std::optional<Texture> TextureManager::LoadTexture(const std::string &textureName) {
     int      w, h, nr;
     stbi_uc *pixels = stbi_load(textureName.c_str(), &w, &h, &nr, STBI_rgb_alpha);
 
@@ -98,7 +96,7 @@ const Texture &TextureManager::Acquire(const std::string &name, b32 autorelease)
         return textureRef.texture;
     }
 
-    auto texture = LoadTexture(name);
+    auto texture = TextureManager::LoadTexture(name);
     if (texture.has_value()) {
         TextureRef textureRef {.texture = *texture, .refcount = 0, .autorelease = autorelease};
         m_textures[name] = textureRef;

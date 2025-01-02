@@ -40,6 +40,7 @@ set(SRCS
     src/window.cpp
     src/world.cpp
     src/texture_manager.cpp
+    src/material_system.cpp
     src/renderer/render_system.cpp
     ${RENDERER_SRC})
 

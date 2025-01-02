@@ -26,7 +26,10 @@ public:
     void        EndDefaultPass() override;
     void        BeginMultiMeshFeaturePass(FrameStatus frame) override;
     void        EndMultiMeshFeaturePass(FrameStatus frame) override;
-    void        CreateModel(std::vector<InstanceData> &instances, Model &model) override;
+    void        CreateModel(std::vector<InstanceData> &instances,
+                    const std::vector<MaterialDescr> &materials,
+                    const std::vector<std::string> &textureFilenames,
+                    Model &model) override;
 
     void        ClearColor(f32 r, f32 g, f32 b, f32 a) override;
     void       *GetDefaultRenderPass() override;

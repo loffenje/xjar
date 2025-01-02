@@ -12,6 +12,7 @@
 #include "vk/vulkan_multimesh_feature.h"
 #endif
 
+#include "texture_manager.h"
 #include <glm/vec4.hpp>
 #include <glm/mat4x4.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -67,7 +68,7 @@ void RenderSystem::LoadInstanceData(const char *filename, std::vector<InstanceDa
 
     fclose(file);
 }
-void RenderSystem::LoadModel(const char *meshFilename, const char *instanceFilename, Model &model) {
+void RenderSystem::LoadModel(const char *meshFilename, const char *instanceFilename, const char *materialFilename, Model &model) {
 
     FILE *file = fopen(meshFilename, "rb");
     if (!file) {
@@ -103,9 +104,42 @@ void RenderSystem::LoadModel(const char *meshFilename, const char *instanceFilen
     std::vector<InstanceData> instances;
     LoadInstanceData(instanceFilename, instances);
 
-    g_backend->CreateModel(instances, model);
+    std::vector<std::string> textureFilenames;
+    std::vector<MaterialDescr> materials;
+    LoadMaterials(materialFilename, materials, textureFilenames);
+
+    g_backend->CreateModel(instances, materials, textureFilenames, model);
 }
 
+void RenderSystem::LoadMaterials(const char *fileName, std::vector<MaterialDescr> &materials, std::vector<std::string> &files) {
+    FILE *f = fopen(fileName, "rb");
+    if (!f) {
+        fprintf(stderr, "Failed to load materials %s\n", fileName);
+        exit(1);
+    }
+
+    u32 size;
+    fread(&size, sizeof(u32), 1, f);
+    materials.resize(size);
+    fread(materials.data(), sizeof(MaterialDescr), materials.size(), f);
+
+    {
+        u32 size = 0;
+        fread(&size, sizeof(uint32_t), 1, f);
+        files.resize(size);
+    }
+
+    std::vector<char> inBytes;
+    for (auto &s : files) {
+        u32 size = 0;
+        fread(&size, sizeof(u32), 1, f);
+        inBytes.resize(size + 1);
+        fread(inBytes.data(), size + 1, 1, f);
+        s = std::string(inBytes.data());
+    }
+
+    fclose(f);
+}
 void RenderSystem::DrawEntities(FrameStatus frame, const GPU_SceneData &sceneData, std::initializer_list<Entity *> entities) {
     g_backend->DrawEntities(frame, sceneData, entities);
 }

@@ -6,6 +6,7 @@
 #include "vulkan_pipeline.h"
 #include "vulkan_model.h"
 #include "vulkan_ds.h"
+#include "vulkan_texture.h"
 
 #include "io.h"
 #include <glm/vec4.hpp>
@@ -15,6 +16,8 @@
 #include <array>
 #include "world.h"
 #include "window.h"
+#include "material_system.h"
+#include "texture_manager.h"
 
 namespace xjar {
 
@@ -40,6 +43,9 @@ void Vulkan_MultiMeshFeature::Init(Vulkan_RenderDevice *device, Vulkan_Swapchain
 }
 
 void Vulkan_MultiMeshFeature::Destroy() {
+    vkDestroySampler(m_renderDevice->device, m_defaultSamplerLinear, nullptr);
+    vkDestroySampler(m_renderDevice->device, m_defaultSamplerNearest, nullptr);
+
     vkDestroyRenderPass(m_renderDevice->device, m_renderPass, nullptr);
 
     vkDestroyImageView(m_renderDevice->device, m_depthImageView, nullptr);
@@ -142,7 +148,11 @@ void Vulkan_MultiMeshFeature::OnResize(Vulkan_Swapchain *swapchain) {
 }
 
 
-void Vulkan_MultiMeshFeature::CreateModel(std::vector<InstanceData> &instanceData, Model &model) {
+void Vulkan_MultiMeshFeature::CreateModel(std::vector<InstanceData>  &instances,
+                const std::vector<MaterialDescr> &materials,
+                const std::vector<std::string>   &textureFilenames,
+                Model                            &model) {
+
     int *handle = new int;
     *handle = m_modelID;
 
@@ -150,8 +160,8 @@ void Vulkan_MultiMeshFeature::CreateModel(std::vector<InstanceData> &instanceDat
     ModelResources &res = m_models[m_modelID++];
     m_modelCount++;
 
-    res.m_maxInstanceCount = instanceData.size();
-    res.m_instances = std::move(instanceData);
+    res.m_maxInstanceCount = instances.size();
+    res.m_instances = std::move(instances);
 
     size_t vertexDataSize = model.mesh.vertexData.size() * sizeof(model.mesh.vertexData[0]);
     size_t indexDataSize = model.mesh.indexData.size() * sizeof(model.mesh.indexData[0]);
@@ -159,6 +169,14 @@ void Vulkan_MultiMeshFeature::CreateModel(std::vector<InstanceData> &instanceDat
     const u32 indirectDataSize = res.m_maxInstanceCount * sizeof(VkDrawIndirectCommand);
     res.m_maxInstanceSize = res.m_maxInstanceCount * sizeof(InstanceData);
     res.m_maxMaterialSize = 1024;
+
+    res.m_loadedTextures.reserve(textureFilenames.size());
+
+    auto &textureManager = TextureManager::Instance();
+    for (const auto &textureName : textureFilenames) {
+        res.m_loadedTextures.push_back(textureName);
+        textureManager.Acquire(textureName);
+    }
 
     const size_t imageCount = m_swapchain->images.size();
     res.m_instanceBuffers.resize(imageCount);
@@ -247,6 +265,7 @@ void Vulkan_MultiMeshFeature::CreateDescriptorPool() {
     dsBindings.AddBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);   // index
     dsBindings.AddBinding(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);   // instance data buffer
     dsBindings.AddBinding(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT); // material
+    dsBindings.AddBinding(5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1024);
 
     m_dsLayout = dsBindings.Build(m_renderDevice->device);
 
@@ -270,6 +289,7 @@ void Vulkan_MultiMeshFeature::AllocateDescriptorSets(ModelResources &res) {
     const u32 imageCount = static_cast<u32>(m_swapchain->images.size());
     res.m_descriptorSets.resize(imageCount);
 
+    auto &textureManager = TextureManager::Instance();
     for (u32 i = 0; i < imageCount; i++) {
 
         res.m_descriptorSets[i] = m_dsAllocators[i].Allocate(m_renderDevice->device, m_dsLayout);
@@ -280,6 +300,27 @@ void Vulkan_MultiMeshFeature::AllocateDescriptorSets(ModelResources &res) {
         writer.WriteBuffer(2, res.m_storageBuffer, res.m_maxIndexBufferSize, res.m_maxVertexBufferSize, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
         writer.WriteBuffer(3, res.m_instanceBuffers[i], res.m_maxInstanceSize, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
         writer.WriteBuffer(4, res.m_materialBuffer, res.m_maxMaterialSize, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+
+        std::vector<VkDescriptorImageInfo> imageInfos;
+        for (const auto &textureName : res.m_loadedTextures) {
+            Texture texture = textureManager.Acquire(textureName);
+            Vulkan_Texture *vktexture = (Vulkan_Texture *)texture.handle;
+
+            imageInfos.emplace_back(VkDescriptorImageInfo {
+                .sampler = vktexture->sampler,
+                .imageView = vktexture->view,
+                .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL });
+        }
+
+        VkWriteDescriptorSet write {};
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.dstBinding = 5;
+        write.dstSet = VK_NULL_HANDLE;
+        write.descriptorCount = imageInfos.size();
+        write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        write.pImageInfo = imageInfos.data();
+
+        writer.writes.push_back(write);
 
         writer.UpdateSet(m_renderDevice->device, res.m_descriptorSets[i]);
 
@@ -414,6 +455,18 @@ void Vulkan_MultiMeshFeature::CreatePipeline() {
 
     vkDestroyShaderModule(m_renderDevice->device, fragShaderModule, nullptr);
     vkDestroyShaderModule(m_renderDevice->device, vertShaderModule, nullptr);
+
+    
+	VkSamplerCreateInfo sampler{};
+    sampler.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    sampler.magFilter = VK_FILTER_NEAREST;
+    sampler.minFilter = VK_FILTER_NEAREST;
+
+    vkCreateSampler(m_renderDevice->device, &sampler, nullptr, &m_defaultSamplerNearest);
+
+    sampler.magFilter = VK_FILTER_LINEAR;
+    sampler.minFilter = VK_FILTER_LINEAR;
+    vkCreateSampler(m_renderDevice->device, &sampler, nullptr, &m_defaultSamplerLinear);
 }
 
 void Vulkan_MultiMeshFeature::BeginPass(FrameStatus frame) {
