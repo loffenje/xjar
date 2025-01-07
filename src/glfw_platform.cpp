@@ -36,7 +36,7 @@ glm::vec2 g_lastMousePos = glm::vec2(0.0f);
 int main() {
     glfwSetErrorCallback([](int error, const char *description) { fprintf(stderr, "Error: %s\n", description); });
 
-#if 1
+#if 0
     MeshConvert("assets/backpack/backpack.obj",
         "assets/test.mesh",
         "assets/test.mesh.instance",
@@ -155,13 +155,13 @@ int main() {
     
     auto         &world = xjar::World::Instance();
     xjar::Entity *ent = world.CreateEntity();
-    ent->model.texture = textureManager.Acquire("assets/wood.jpg");
-
     xjar::Entity *ent2 = world.CreateEntity();
-    ent2->model.texture = textureManager.Acquire("assets/wood.jpg");
+    xjar::Entity *ent3 = world.CreateEntity();
+
 
     renderSystem.LoadModel("assets/test.mesh", "assets/test.mesh.instance", "assets/test.materials", ent->model);
     renderSystem.LoadModel("assets/test.mesh", "assets/test.mesh.instance", "assets/test.materials", ent2->model);
+    renderSystem.LoadModel("assets/test.mesh", "assets/test.mesh.instance", "assets/test.materials", ent3->model);
 
     memset(g_gameInput, 0, sizeof(xjar::GameInput));
 
@@ -194,6 +194,9 @@ int main() {
         glm::mat4 model2 = glm::translate(glm::mat4(1.0f), glm::vec3(10.0f, 0.0f, 0.0f));
         ent2->model.localTransform = model2;
         
+        glm::mat4 model3 = glm::translate(glm::mat4(1.0f), glm::vec3(10.0f, 4.0f, 0.0f));
+        ent3->model.localTransform = model3;
+
         xjar::GPU_SceneData sceneData{};
         sceneData.viewMat = g_FpsCamera.GetViewMatrix();
         sceneData.projMat = glm::perspective(glm::radians(45.0f), (f32)windowObj.width / (f32)windowObj.height, 0.1f, 1000.0f);
@@ -206,7 +209,7 @@ int main() {
             
             renderSystem.BeginMultiMeshFeaturePass(frame);
             // NOTE: and here each feature will be used it's own render pass
-            renderSystem.DrawEntities(frame, sceneData, {ent, ent2});
+            renderSystem.DrawEntities(frame, sceneData, {ent, ent2, ent3});
             renderSystem.EndMultiMeshFeaturePass(frame);
 
             renderSystem.EndFrame();
@@ -218,8 +221,6 @@ int main() {
         g_prevInput = tempInput;
     }
 
-
-    textureManager.Release("assets/wood.jpg");
 
     renderSystem.Shutdown();
 

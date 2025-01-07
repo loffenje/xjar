@@ -27,7 +27,7 @@ public:
     void        BeginMultiMeshFeaturePass(FrameStatus frame) override;
     void        EndMultiMeshFeaturePass(FrameStatus frame) override;
     void        CreateModel(std::vector<InstanceData> &instances,
-                    const std::vector<MaterialDescr> &materials,
+                    std::vector<MaterialDescr> &materials,
                     const std::vector<std::string> &textureFilenames,
                     Model &model) override;
 

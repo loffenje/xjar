@@ -149,7 +149,7 @@ void Vulkan_MultiMeshFeature::OnResize(Vulkan_Swapchain *swapchain) {
 
 
 void Vulkan_MultiMeshFeature::CreateModel(std::vector<InstanceData>  &instances,
-                const std::vector<MaterialDescr> &materials,
+                std::vector<MaterialDescr> &materials,
                 const std::vector<std::string>   &textureFilenames,
                 Model                            &model) {
 
@@ -163,12 +163,15 @@ void Vulkan_MultiMeshFeature::CreateModel(std::vector<InstanceData>  &instances,
     res.m_maxInstanceCount = instances.size();
     res.m_instances = std::move(instances);
 
-    size_t vertexDataSize = model.mesh.vertexData.size() * sizeof(model.mesh.vertexData[0]);
-    size_t indexDataSize = model.mesh.indexData.size() * sizeof(model.mesh.indexData[0]);
-
+    const u32 vertexDataSize = model.mesh.vertexData.size() * sizeof(model.mesh.vertexData[0]);
+    const u32 indexDataSize = model.mesh.indexData.size() * sizeof(model.mesh.indexData[0]);
+    const u32 materialsSize = materials.size() * sizeof(MaterialDescr);
     const u32 indirectDataSize = res.m_maxInstanceCount * sizeof(VkDrawIndirectCommand);
+
     res.m_maxInstanceSize = res.m_maxInstanceCount * sizeof(InstanceData);
-    res.m_maxMaterialSize = 1024;
+
+    res.m_materials = std::move(materials);
+    res.m_maxMaterialSize = materialsSize;
 
     res.m_loadedTextures.reserve(textureFilenames.size());
 
@@ -189,6 +192,8 @@ void Vulkan_MultiMeshFeature::CreateModel(std::vector<InstanceData>  &instances,
                 VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                 res.m_materialBuffer, res.m_materialBufferMemory);
+
+    UploadBufferData(m_renderDevice, res.m_materialBufferMemory, 0, res.m_materials.data(), materialsSize);
 
     res.m_maxVertexBufferSize = vertexDataSize;
     res.m_maxIndexBufferSize = indexDataSize;
@@ -307,7 +312,7 @@ void Vulkan_MultiMeshFeature::AllocateDescriptorSets(ModelResources &res) {
             Vulkan_Texture *vktexture = (Vulkan_Texture *)texture.handle;
 
             imageInfos.emplace_back(VkDescriptorImageInfo {
-                .sampler = vktexture->sampler,
+                .sampler = m_defaultSamplerLinear,
                 .imageView = vktexture->view,
                 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL });
         }

@@ -18,7 +18,7 @@ public:
     virtual void DrawEntities(FrameStatus frame, const GPU_SceneData &sceneData, std::initializer_list<Entity *> entities) = 0;
 
     virtual void CreateModel(std::vector<InstanceData> &instances,
-        const std::vector<MaterialDescr> &materials,
+        std::vector<MaterialDescr> &materials,
         const std::vector<std::string> &textureFilenames,
         Model &model) = 0;
     

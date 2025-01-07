@@ -50,6 +50,7 @@ static void CreateDefaultTexture() {
 
 std::optional<Texture> TextureManager::LoadTexture(const std::string &textureName) {
     int      w, h, nr;
+
     stbi_uc *pixels = stbi_load(textureName.c_str(), &w, &h, &nr, STBI_rgb_alpha);
 
     if (!pixels) {

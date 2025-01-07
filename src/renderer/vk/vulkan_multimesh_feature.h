@@ -15,6 +15,7 @@ struct Vulkan_RenderDevice;
 
 struct ModelResources {
     std::vector<InstanceData>       m_instances;
+    std::vector<MaterialDescr>      m_materials;
     std::vector<VkDescriptorSet>    m_descriptorSets;
 
     u32 m_maxVertexBufferSize, m_maxIndexBufferSize;
@@ -59,7 +60,7 @@ class Vulkan_MultiMeshFeature final {
 public:
     void Init(Vulkan_RenderDevice *device, Vulkan_Swapchain *swapchain);
     void CreateModel(std::vector<InstanceData> &instances,
-        const std::vector<MaterialDescr> &materials, 
+        std::vector<MaterialDescr> &materials, 
         const std::vector<std::string> &textureFilenames,
         Model &model);
 

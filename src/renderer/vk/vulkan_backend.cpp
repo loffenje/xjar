@@ -103,7 +103,7 @@ void Vulkan_Backend::CreateTexture(const void *pixels, Texture *texture) {
     Vulkan_Texture *vktexture = (Vulkan_Texture *)malloc(sizeof(Vulkan_Texture));
     texture->id = gentexture++;
     texture->handle = vktexture;
-    VkFormat format = VK_FORMAT_B8G8R8A8_UNORM;
+    VkFormat format = VK_FORMAT_R8G8B8A8_UNORM;
 
     u32 bytesPerPixel = BytesPerTextureFormat(format);
 
@@ -201,7 +201,7 @@ void Vulkan_Backend::CreateTexture(const void *pixels, Texture *texture) {
 }
 
 void Vulkan_Backend::CreateModel(std::vector<InstanceData> &instances,
-                const std::vector<MaterialDescr> &materials,
+                std::vector<MaterialDescr> &materials,
                 const std::vector<std::string>   &textureFilenames,
                 Model                            &model) {
     m_multiMeshFeature->CreateModel(instances, materials, textureFilenames, model);
