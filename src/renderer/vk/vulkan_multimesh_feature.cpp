@@ -264,7 +264,7 @@ void Vulkan_MultiMeshFeature::CreateDescriptorPool() {
     }
 
     DescriptorLayoutBuilder dsBindings;
-    dsBindings.AddBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT); // viewProjection 
+    dsBindings.AddBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT); // viewProjection 
     dsBindings.AddBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);   // vertex
     dsBindings.AddBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);   // index
     dsBindings.AddBinding(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);   // instance data buffer
@@ -282,7 +282,7 @@ void Vulkan_MultiMeshFeature::CreateUniformBuffers() {
     m_uniformBuffersMemory.resize(imageCount);
 
     for (u32 i = 0; i < imageCount; i++) {
-        CreateBuffer(m_renderDevice, sizeof(UniformSceneObject),
+        CreateBuffer(m_renderDevice, sizeof(GPU_SceneData),
                      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                      m_uniformBuffers[i], m_uniformBuffersMemory[i]);
@@ -299,7 +299,7 @@ void Vulkan_MultiMeshFeature::AllocateDescriptorSets(ModelResources &res) {
         res.m_descriptorSets[i] = m_dsAllocators[i].Allocate(m_renderDevice->device, m_dsLayout);
 
         DescriptorWriter writer;
-        writer.WriteBuffer(0, m_uniformBuffers[i], sizeof(UniformSceneObject), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+        writer.WriteBuffer(0, m_uniformBuffers[i], sizeof(GPU_SceneData), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
         writer.WriteBuffer(1, res.m_storageBuffer, res.m_maxVertexBufferSize, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
         writer.WriteBuffer(2, res.m_storageBuffer, res.m_maxIndexBufferSize, res.m_maxVertexBufferSize, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
         writer.WriteBuffer(3, res.m_instanceBuffers[i], res.m_maxInstanceSize, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
@@ -439,13 +439,6 @@ void Vulkan_MultiMeshFeature::CreatePipeline() {
     push.size = sizeof(PushConstantData);
     push.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
-    //std::vector<VkVertexInputBindingDescription> bindingDescriptions(1);
-    //bindingDescriptions[0].binding = 0;
-    //bindingDescriptions[0].stride = sizeof(Vertex3D);
-    //bindingDescriptions[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    //std::vector<VkVertexInputAttributeDescription> attributeDescriptions(2);
-
     m_pipeline.SetInputTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
     m_pipeline.SetPolygonMode(VK_POLYGON_MODE_FILL);
     m_pipeline.SetCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
@@ -512,17 +505,13 @@ void Vulkan_MultiMeshFeature::EndPass(FrameStatus frame) {
     vkCmdEndRenderPass(*vkcmdbuf);
 }
 
-void Vulkan_MultiMeshFeature::DrawEntities(FrameStatus frame, const GPU_SceneData &sceneData, std::initializer_list<Entity *> entities) {
+void Vulkan_MultiMeshFeature::DrawEntities(FrameStatus frame, GPU_SceneData *sceneData, std::initializer_list<Entity *> entities) {
 
     VkCommandBuffer *vkcmdbuf = (VkCommandBuffer *)frame.commandBuffer;
 
-    UniformSceneObject uniformScene {};
-    uniformScene.projection = sceneData.projMat;
-    uniformScene.view = sceneData.viewMat;
+    sceneData->projMat[1][1] *= -1;
 
-    uniformScene.projection[1][1] *= -1;
-
-    UploadBufferData(m_renderDevice, m_uniformBuffersMemory[frame.currentImage], 0, &uniformScene, sizeof(UniformSceneObject));
+    UploadBufferData(m_renderDevice, m_uniformBuffersMemory[frame.currentImage], 0, sceneData, sizeof(*sceneData));
 
     for (Entity *ent : entities) {
         int modelID = *(int *)ent->model.handle;

@@ -140,7 +140,7 @@ void RenderSystem::LoadMaterials(const char *fileName, std::vector<MaterialDescr
 
     fclose(f);
 }
-void RenderSystem::DrawEntities(FrameStatus frame, const GPU_SceneData &sceneData, std::initializer_list<Entity *> entities) {
+void RenderSystem::DrawEntities(FrameStatus frame, GPU_SceneData *sceneData, std::initializer_list<Entity *> entities) {
     g_backend->DrawEntities(frame, sceneData, entities);
 }
 
@@ -156,7 +156,7 @@ void RenderSystem::OnResized(u32 width, u32 height) {
     g_backend->OnResized(width, height);
 }
 
-void RenderSystem::BeginDefaultPass(const GPU_SceneData &sceneData) {
+void RenderSystem::BeginDefaultPass(GPU_SceneData *sceneData) {
     g_backend->BeginDefaultPass();
 }
 

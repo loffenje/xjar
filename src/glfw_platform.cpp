@@ -200,16 +200,18 @@ int main() {
         xjar::GPU_SceneData sceneData{};
         sceneData.viewMat = g_FpsCamera.GetViewMatrix();
         sceneData.projMat = glm::perspective(glm::radians(45.0f), (f32)windowObj.width / (f32)windowObj.height, 0.1f, 1000.0f);
+        sceneData.viewPos = g_FpsCamera.m_cameraPosition;
+
         auto frame = renderSystem.BeginFrame();
         if (frame.success) {
 
-            renderSystem.BeginDefaultPass(sceneData);
+            renderSystem.BeginDefaultPass(&sceneData);
              // NOTE: here we should call features that use default render pass
             renderSystem.EndDefaultPass();
             
             renderSystem.BeginMultiMeshFeaturePass(frame);
             // NOTE: and here each feature will be used it's own render pass
-            renderSystem.DrawEntities(frame, sceneData, {ent, ent2, ent3});
+            renderSystem.DrawEntities(frame, &sceneData, {ent, ent2, ent3});
             renderSystem.EndMultiMeshFeaturePass(frame);
 
             renderSystem.EndFrame();

@@ -15,7 +15,7 @@ public:
     virtual FrameStatus BeginFrame() = 0;
     virtual void        EndFrame() = 0;
 
-    virtual void DrawEntities(FrameStatus frame, const GPU_SceneData &sceneData, std::initializer_list<Entity *> entities) = 0;
+    virtual void DrawEntities(FrameStatus frame, GPU_SceneData *sceneData, std::initializer_list<Entity *> entities) = 0;
 
     virtual void CreateModel(std::vector<InstanceData> &instances,
         std::vector<MaterialDescr> &materials,

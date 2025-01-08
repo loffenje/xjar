@@ -20,7 +20,7 @@ public:
     void        OnResized(u32 width, u32 height);
     FrameStatus BeginFrame();
     void        EndFrame();
-    void        BeginDefaultPass(const GPU_SceneData &sceneData);
+    void        BeginDefaultPass(GPU_SceneData *sceneData);
     void        EndDefaultPass();
     void        BeginMultiMeshFeaturePass(FrameStatus frame);
     void        EndMultiMeshFeaturePass(FrameStatus frame);
@@ -29,7 +29,7 @@ public:
     void        LoadModel(const char *meshFilename, const char *instanceFilename, const char *materialFilename, Model &model);
     void        CreateTexture(const void *pixels, Texture *texture);
     void        DestroyTexture(Texture *texture);
-    void        DrawEntities(FrameStatus frame, const GPU_SceneData &sceneData, std::initializer_list<Entity *> entities);
+    void        DrawEntities(FrameStatus frame, GPU_SceneData *sceneData, std::initializer_list<Entity *> entities);
 
 private:
     void LoadInstanceData(const char *filename, std::vector<InstanceData> &instances);

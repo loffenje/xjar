@@ -8,8 +8,9 @@ struct MaterialData
     vec4 albedoColor;
     vec4 emissiveColor;
     uint64_t diffuseMap;
-    uint64_t normalMap;
     uint64_t specularMap;
+    uint64_t normalMap;
+    uint64_t padding;
 };
 
 layout(location = 0) in vec3 uvw;
@@ -18,6 +19,12 @@ layout(location = 2) in vec3 normal;
 layout(location = 3) in vec3 fragPos;
 
 layout(location = 0) out vec4 FragColor;
+
+layout(binding = 0) uniform  UniformBuffer { 
+    mat4 view;
+    mat4 projection;
+    vec3 viewPos;
+} ubo;
 
 layout(binding = 4) readonly buffer MatBO { MaterialData   data[]; } mat_bo;
 layout(binding = 5) uniform sampler2D textures[];
@@ -35,32 +42,35 @@ void main()
 
 
     MaterialData matData = mat_bo.data[matIndex];
-    vec4 albedo = matData.albedoColor;
-    vec4 specular = vec4(0,0,0,0);
+    vec4 diffuseMap = matData.albedoColor;
+    vec4 specularMap = matData.albedoColor;
 
     const int INVALID_HANDLE = 2000;
 
     if (matData.diffuseMap < INVALID_HANDLE) {
         uint texIndex = uint(matData.diffuseMap);
-        albedo = texture(textures[nonuniformEXT(texIndex)], uvw.xy);
+        diffuseMap = texture(textures[nonuniformEXT(texIndex)], uvw.xy);
     }
     
     if (matData.specularMap < INVALID_HANDLE) {
         uint texIndex = uint(matData.specularMap);
-        albedo = texture(textures[nonuniformEXT(texIndex)], uvw.xy);
+        specularMap = texture(textures[nonuniformEXT(texIndex)], uvw.xy);
     }
 
     //ambient
-    vec3 ambient = ambientColor * albedo.rgb;
+    vec3 ambient = ambientColor * diffuseMap.rgb;
 
     // diffuse
     vec3 norm = normalize(normal);
     vec3 lightDir = normalize(lightPos - fragPos);
     float diffuseStrength = max(dot(lightDir, norm), 0.0f);
-    vec3 diffuse = diffuseStrength * diffuseColor * albedo.rgb;
+    vec3 diffuse = diffuseStrength * diffuseColor * diffuseMap.rgb;
 
     // specular
-
-    FragColor = vec4(ambient + diffuse, 1.0);
+    vec3 viewDir = normalize(ubo.viewPos - fragPos);
+    vec3 reflectDir = reflect(-lightDir, norm);
+    float specularIntensity = pow(max(dot(viewDir, reflectDir), 0.0), 32);
+    vec3 specular = specularColor * specularIntensity * specularMap.rgb;
+    FragColor = vec4(ambient + diffuse + specular, 1.0);
 }
 

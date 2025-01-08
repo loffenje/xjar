@@ -29,6 +29,7 @@ layout(push_constant) uniform PushConstantData {
 layout(binding = 0) uniform  UniformBuffer { 
     mat4 view;
     mat4 projection;
+    vec3 viewPos;
 } ubo;
 layout(binding = 1) readonly buffer SBO    { ImDrawVert data[]; } sbo;
 layout(binding = 2) readonly buffer IBO    { uint   data[]; } ibo;

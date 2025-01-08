@@ -21,7 +21,7 @@ public:
     void        DestroyTexture(Texture *texture) override;
     FrameStatus BeginFrame() override;
     void        EndFrame() override;
-    void        DrawEntities(FrameStatus frame, const GPU_SceneData &sceneData, std::initializer_list<Entity *> entities) override;
+    void        DrawEntities(FrameStatus frame, GPU_SceneData *sceneData, std::initializer_list<Entity *> entities) override;
     void        BeginDefaultPass() override;
     void        EndDefaultPass() override;
     void        BeginMultiMeshFeaturePass(FrameStatus frame) override;

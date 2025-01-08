@@ -27,6 +27,7 @@ struct GPU_SceneData {
     glm::mat4 viewMat;
     glm::mat4 projMat;
 
+    glm::vec3 viewPos;
     glm::vec4 ambientColor;
     glm::vec4 sunlightDir;
     glm::vec4 sunlightColor;
@@ -87,11 +88,6 @@ struct Model {
     glm::mat4    localTransform;
     TriangleMesh mesh;
     void        *handle; // the actual handle to the mesh with vao, vbo, ebo
-};
-
-struct UniformSceneObject {
-    glm::mat4 view;
-    glm::mat4 projection;
 };
 
 struct PushConstantData {

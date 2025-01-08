@@ -64,7 +64,7 @@ public:
         const std::vector<std::string> &textureFilenames,
         Model &model);
 
-    void DrawEntities(FrameStatus frame, const GPU_SceneData &sceneData, std::initializer_list<Entity *> entities);
+    void DrawEntities(FrameStatus frame, GPU_SceneData *sceneData, std::initializer_list<Entity *> entities);
     void OnResize(Vulkan_Swapchain *swapchain);
     void BeginPass(FrameStatus frame);
     void EndPass(FrameStatus frame);

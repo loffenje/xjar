@@ -318,7 +318,7 @@ void Vulkan_Backend::EndMultiMeshFeaturePass(FrameStatus frame) {
     m_multiMeshFeature->EndPass(frame);
 }
 
-void Vulkan_Backend::DrawEntities(FrameStatus frame, const GPU_SceneData &sceneData, std::initializer_list<Entity *> entities) {
+void Vulkan_Backend::DrawEntities(FrameStatus frame, GPU_SceneData *sceneData, std::initializer_list<Entity *> entities) {
     m_multiMeshFeature->DrawEntities(frame, sceneData, entities);
 }
 
