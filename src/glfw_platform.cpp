@@ -36,7 +36,7 @@ glm::vec2 g_lastMousePos = glm::vec2(0.0f);
 int main() {
     glfwSetErrorCallback([](int error, const char *description) { fprintf(stderr, "Error: %s\n", description); });
 
-#if 0
+#if 1
     MeshConvert("assets/backpack/backpack.obj",
         "assets/test.mesh",
         "assets/test.mesh.instance",

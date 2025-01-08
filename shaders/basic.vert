@@ -4,6 +4,8 @@
 
 layout(location = 0) out vec3 outUVW;
 layout(location = 1) out flat uint outMatIndex;
+layout(location = 2) out vec3 outNormal;
+layout(location = 3) out vec3 outFragPos;
 
 struct ImDrawVert   { 
     float x, y, z;
@@ -20,8 +22,6 @@ struct InstanceData {
 	uint transformIndex;
 };
 
-struct MaterialData { uint tex2D; };
-
 layout(push_constant) uniform PushConstantData {
     mat4 model;
 } push;
@@ -37,12 +37,16 @@ layout(binding = 3) readonly buffer InstanceBO { InstanceData data[]; } instance
 void main()
 {
 	InstanceData instance = instanceDataBuffer.data[gl_BaseInstance];
-
+    
 	uint refIdx = instance.indexOffset + gl_VertexIndex;
 	ImDrawVert v = sbo.data[ibo.data[refIdx] + instance.vertexOffset];
+    
+    vec3 pos = vec3(v.x, v.y, v.z);
 
-	gl_Position = ubo.projection * ubo.view * push.model * vec4(v.x, v.y, v.z, 1.0);
+	gl_Position = ubo.projection * ubo.view * push.model * vec4(pos, 1.0);
     outMatIndex = instance.material;
     outUVW = vec3(v.u, v.v, 1.0);
+    outNormal = mat3(transpose(inverse(push.model))) * vec3(v.nx, v.ny, v.nz);
+    outFragPos = vec3(push.model * vec4(pos, 1.0f));
 }
 

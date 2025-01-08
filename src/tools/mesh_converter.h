@@ -67,7 +67,15 @@ xjar::MaterialDescr ConvertAIMaterial(const aiMaterial *mat, const char *dir) {
         fullpath.append("/");
         fullpath.append(path.C_Str());
 
-        descr.albedoMap = AddUnique(g_matFiles, fullpath);
+        descr.diffuseMap = AddUnique(g_matFiles, fullpath);
+    }
+
+    if (aiGetMaterialTexture(mat, aiTextureType_SPECULAR, 0, &path) == AI_SUCCESS) {
+        std::string fullpath = dir;
+        fullpath.append("/");
+        fullpath.append(path.C_Str());
+
+        descr.specularMap = AddUnique(g_matFiles, fullpath);
     }
 
     return descr;

@@ -38,11 +38,6 @@ struct Vertex {
     glm::vec2 texcoord;
 };
 
-struct Vertex3D {
-    glm::vec3 position;
-    glm::vec2 texcoord;
-};
-
 struct Mesh {
     u32 lodNum;
     u32 streamNum;
