@@ -68,6 +68,11 @@ public:
     void OnResize(Vulkan_Swapchain *swapchain);
     void BeginPass(FrameStatus frame);
     void EndPass(FrameStatus frame);
+
+    VkRenderPass *GetPass() {
+        return &m_renderPass;
+    }
+
     void Destroy();
 
 private:

@@ -7,7 +7,8 @@
 #include <stdlib.h>
 
 namespace xjar {
-std::vector<char> ReadFile(std::string_view filename) {
+
+inline std::vector<char> ReadFile(std::string_view filename) {
     std::ifstream f(filename.data(), std::ios::ate | std::ios::binary);
     if (!f.is_open()) {
         fprintf(stderr, "Failed to open file\n");

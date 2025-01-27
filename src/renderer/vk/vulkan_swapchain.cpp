@@ -92,8 +92,8 @@ void CreateRenderPass(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice *rd) {
 
     VkAttachmentReference colorAttachmentRef = {};
     colorAttachmentRef.attachment = 0;
-
     colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
     VkAttachmentDescription colorAttachment = {};
     colorAttachment.format = swapchain->imageFormat;
     colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -102,7 +102,7 @@ void CreateRenderPass(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice *rd) {
     colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
     VkSubpassDescription subpass = {};
     subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;

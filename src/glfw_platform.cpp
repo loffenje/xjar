@@ -36,7 +36,7 @@ glm::vec2 g_lastMousePos = glm::vec2(0.0f);
 int main() {
     glfwSetErrorCallback([](int error, const char *description) { fprintf(stderr, "Error: %s\n", description); });
 
-#if 1
+#if 0
     MeshConvert("assets/backpack/backpack.obj",
         "assets/test.mesh",
         "assets/test.mesh.instance",
@@ -205,14 +205,10 @@ int main() {
         auto frame = renderSystem.BeginFrame();
         if (frame.success) {
 
-            renderSystem.BeginDefaultPass(&sceneData);
-             // NOTE: here we should call features that use default render pass
-            renderSystem.EndDefaultPass();
-            
-            renderSystem.BeginMultiMeshFeaturePass(frame);
-            // NOTE: and here each feature will be used it's own render pass
+            renderSystem.ClearColor(frame, 0.2f, 0.2, 0.2, 1.0f);
+
+            renderSystem.DrawGrid(frame, &sceneData);
             renderSystem.DrawEntities(frame, &sceneData, {ent, ent2, ent3});
-            renderSystem.EndMultiMeshFeaturePass(frame);
 
             renderSystem.EndFrame();
         }
@@ -224,6 +220,8 @@ int main() {
     }
 
 
+
+    textureManager.Shutdown();
     renderSystem.Shutdown();
 
     glfwDestroyWindow(window);

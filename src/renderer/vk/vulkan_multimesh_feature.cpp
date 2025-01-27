@@ -73,11 +73,11 @@ void Vulkan_MultiMeshFeature::CreateColorAndDepthRenderPass() {
     VkAttachmentDescription depthAttachment {};
     depthAttachment.format = FindDepthFormat(m_renderDevice->physicalDevice);
     depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    depthAttachment.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
     VkAttachmentReference depthAttachmentRef {};
@@ -475,8 +475,8 @@ void Vulkan_MultiMeshFeature::BeginPass(FrameStatus frame) {
 
     VkRenderPassBeginInfo passInfo {};
     passInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    passInfo.renderPass = m_swapchain->renderPass;
-    passInfo.framebuffer = m_swapchain->framebuffers[frame.currentImage];
+    passInfo.renderPass = m_renderPass;
+    passInfo.framebuffer = m_framebuffers[frame.currentImage];
     passInfo.renderArea.offset = {0, 0};
     passInfo.renderArea.extent = m_swapchain->swapchainExtent;
     passInfo.clearValueCount = static_cast<u32>(clearValues.size());

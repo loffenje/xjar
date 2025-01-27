@@ -68,6 +68,11 @@ void RenderSystem::LoadInstanceData(const char *filename, std::vector<InstanceDa
 
     fclose(file);
 }
+
+void RenderSystem::CreatePlane(Texture *texture) {
+    
+}
+
 void RenderSystem::LoadModel(const char *meshFilename, const char *instanceFilename, const char *materialFilename, Model &model) {
 
     FILE *file = fopen(meshFilename, "rb");
@@ -141,7 +146,15 @@ void RenderSystem::LoadMaterials(const char *fileName, std::vector<MaterialDescr
     fclose(f);
 }
 void RenderSystem::DrawEntities(FrameStatus frame, GPU_SceneData *sceneData, std::initializer_list<Entity *> entities) {
+    g_backend->BeginMultiMeshFeaturePass(frame);
     g_backend->DrawEntities(frame, sceneData, entities);
+    g_backend->EndMultiMeshFeaturePass(frame);
+}
+
+void RenderSystem::DrawGrid(FrameStatus frame, GPU_SceneData *sceneData) {
+    g_backend->BeginGridPass(frame);
+    g_backend->DrawGrid(frame, sceneData);
+    g_backend->EndGridPass(frame);
 }
 
 void RenderSystem::CreateTexture(const void *pixels, Texture *texture) {
@@ -156,20 +169,8 @@ void RenderSystem::OnResized(u32 width, u32 height) {
     g_backend->OnResized(width, height);
 }
 
-void RenderSystem::BeginDefaultPass(GPU_SceneData *sceneData) {
-    g_backend->BeginDefaultPass();
-}
-
-void RenderSystem::EndDefaultPass() {
-    g_backend->EndDefaultPass();
-}
-
-void RenderSystem::BeginMultiMeshFeaturePass(FrameStatus frame) {
-    g_backend->BeginMultiMeshFeaturePass(frame);
-}
-
-void RenderSystem::EndMultiMeshFeaturePass(FrameStatus frame) {
-    g_backend->EndMultiMeshFeaturePass(frame);
+void RenderSystem::ClearColor(FrameStatus frame, f32 r, f32 g, f32 b, f32 a) {
+    g_backend->ClearColor(frame, r, g, b, a);
 }
 
 FrameStatus RenderSystem::BeginFrame() {

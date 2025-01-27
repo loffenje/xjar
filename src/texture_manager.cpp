@@ -126,4 +126,11 @@ void TextureManager::Release(const std::string &name) {
     }
 }
 
+void TextureManager::Shutdown() {
+    auto &renderSys = RenderSystem::Instance();
+    for (auto &[key, textureRef] : m_textures) {
+        renderSys.DestroyTexture(&textureRef.texture);
+    }
+}
+
 }

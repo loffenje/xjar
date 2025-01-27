@@ -19,6 +19,7 @@ public:
     static TextureManager &Instance();
 
     void           StartUp(u32 maxTextureNum);
+    void           Shutdown();
     const Texture &GetDefaultTexture();
     const Texture &Acquire(const std::string &name, b32 autorelease = true);
     void           Release(const std::string &name);

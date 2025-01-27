@@ -23,10 +23,14 @@ VkDescriptorSetLayout g_dsSceneLayout;
 void Vulkan_Backend::OnInit() {
     m_renderDevice = CreateRenderDevice("xjar", "xjarEngine");
     RecreateSwapchain(); 
+    CreateLastRenderPass();
     CreateBuffers();
 
     m_multiMeshFeature = new Vulkan_MultiMeshFeature();
     m_multiMeshFeature->Init(&m_renderDevice, m_swapchain.get());
+
+    m_gridFeature = new Vulkan_GridFeature();
+    m_gridFeature->Init(&m_renderDevice, m_swapchain.get());
 }
 
 void Vulkan_Backend::CreateBuffers() {
@@ -49,6 +53,7 @@ void Vulkan_Backend::OnDestroy() {
     vkDeviceWaitIdle(m_renderDevice.device);
 
     m_multiMeshFeature->Destroy();
+    m_gridFeature->Destroy();
 #if 0
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         m_frameDescriptors[i].DestroyPools(m_renderDevice.device);
@@ -62,13 +67,17 @@ void Vulkan_Backend::OnDestroy() {
     m_commandBuffers.clear();
 
     DestroySwapchain(m_swapchain.get(), &m_renderDevice);
+    vkDestroyRenderPass(m_renderDevice.device, m_lastRenderPass, nullptr);
     DestroyRenderDevice(&m_renderDevice);
+
 }
 void Vulkan_Backend::OnResized(u32 width, u32 height) {
     auto &window = GetWindow();
     window.width = width;
     window.height = height;
-    window.resized = true;
+    RecreateSwapchain();
+    m_multiMeshFeature->OnResize(m_swapchain.get());
+    m_gridFeature->OnResize(m_swapchain.get());
 }
 u32 BytesPerTextureFormat(VkFormat fmt) {
     switch (fmt) {
@@ -200,7 +209,21 @@ void Vulkan_Backend::CreateTexture(const void *pixels, Texture *texture) {
     }
 }
 
-void Vulkan_Backend::CreateModel(std::vector<InstanceData> &instances,
+
+void Vulkan_Backend::CreatePlane(Texture *texture) {
+
+    f32 planeVertices[] = {
+        // positions            // normals         // texcoords
+        10.0f, -0.5f, 10.0f, 0.0f, 1.0f, 0.0f, 10.0f, 0.0f,
+        -10.0f, -0.5f, 10.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+        -10.0f, -0.5f, -10.0f, 0.0f, 1.0f, 0.0f, 0.0f, 10.0f,
+
+        10.0f, -0.5f, 10.0f, 0.0f, 1.0f, 0.0f, 10.0f, 0.0f,
+        -10.0f, -0.5f, -10.0f, 0.0f, 1.0f, 0.0f, 0.0f, 10.0f,
+        10.0f, -0.5f, -10.0f, 0.0f, 1.0f, 0.0f, 10.0f, 10.0f};
+}
+
+void Vulkan_Backend::CreateModel(std::vector<InstanceData>      &instances,
                 std::vector<MaterialDescr> &materials,
                 const std::vector<std::string>   &textureFilenames,
                 Model                            &model) {
@@ -283,25 +306,47 @@ FrameStatus Vulkan_Backend::BeginFrame() {
         exit(1);
     }
 
+    FrameStatus status {
+        .success = true,
+        .commandBuffer = cmdbuf,
+        .defaultPass = m_swapchain->renderPass,
+        .multimeshPass = m_multiMeshFeature->GetPass(),
+        .currentImage = m_currentImageIndex};
 
-    FrameStatus status{.success = true, .commandBuffer=cmdbuf, .currentImage = m_currentImageIndex};
     return status;
 }
 
 void Vulkan_Backend::EndFrame() {
     auto *cmdbuf = GetCurrentCommandBuffer();
+
+
+    auto &window = GetWindow();
+
+    const VkRect2D screenRect = {
+        .offset = {0, 0},
+        .extent = {.width = window.width, .height = window.height}};
+
+    VkRenderPassBeginInfo passInfo {};
+    passInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    passInfo.renderPass = m_lastRenderPass;
+    passInfo.framebuffer = m_swapchain->framebuffers[m_currentImageIndex];
+    passInfo.renderArea = screenRect;
+
+    vkCmdBeginRenderPass(*cmdbuf, &passInfo, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdEndRenderPass(*cmdbuf); // transition to swapchain KHR layout
+
     if (vkEndCommandBuffer(*cmdbuf) != VK_SUCCESS) {
         fprintf(stderr, "Failed to end recording\n");
         exit(1);
     }
 
     VkResult result = SubmitCommandBuffers(m_swapchain.get(), &m_renderDevice, cmdbuf, &m_currentImageIndex);
-    auto &window = GetWindow();
-    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || window.resized) {
-        window.resized = false;
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+        //window.resized = false;
 
         RecreateSwapchain();
         m_multiMeshFeature->OnResize(m_swapchain.get());
+        m_gridFeature->OnResize(m_swapchain.get());
     } else if (result != VK_SUCCESS) {
         fprintf(stderr, "Failed to present swapchain image\n");
         exit(1);
@@ -318,17 +363,21 @@ void Vulkan_Backend::EndMultiMeshFeaturePass(FrameStatus frame) {
     m_multiMeshFeature->EndPass(frame);
 }
 
+void Vulkan_Backend::DrawGrid(FrameStatus frame, GPU_SceneData *sceneData) {
+    m_gridFeature->Draw(frame, sceneData);
+}
+
 void Vulkan_Backend::DrawEntities(FrameStatus frame, GPU_SceneData *sceneData, std::initializer_list<Entity *> entities) {
     m_multiMeshFeature->DrawEntities(frame, sceneData, entities);
 }
 
-void Vulkan_Backend::BeginDefaultPass() {
-    auto *cmdbuf = GetCurrentCommandBuffer();
+
+void Vulkan_Backend::ClearColor(FrameStatus frame, f32 r, f32 g, f32 b, f32 a) {
+    VkCommandBuffer *cmdbuf = (VkCommandBuffer *)frame.commandBuffer;
 
     std::array<VkClearValue, 2> clearValues {};
-    clearValues[0].color = {0.1f, 0.1f, 0.1f, 1.0f};
+    clearValues[0].color = {r, g, b, a};
     clearValues[1].depthStencil = {1.0f, 0};
-
 
     VkRenderPassBeginInfo passInfo {};
     passInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -340,7 +389,9 @@ void Vulkan_Backend::BeginDefaultPass() {
     passInfo.pClearValues = clearValues.data();
 
     vkCmdBeginRenderPass(*cmdbuf, &passInfo, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdEndRenderPass(*cmdbuf); // transition to optimal
 
+    
     VkViewport viewport {};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
@@ -352,6 +403,16 @@ void Vulkan_Backend::BeginDefaultPass() {
 
     vkCmdSetViewport(*cmdbuf, 0, 1, &viewport);
     vkCmdSetScissor(*cmdbuf, 0, 1, &scissor);
+}
+
+void Vulkan_Backend::BeginGridPass(FrameStatus frame) {
+    m_gridFeature->BeginPass(frame);
+}
+
+void Vulkan_Backend::EndGridPass(FrameStatus frame) {
+    VkCommandBuffer *cmdbuf = (VkCommandBuffer *)frame.commandBuffer;
+
+    vkCmdEndRenderPass(*cmdbuf);
 }
 
 void Vulkan_Backend::UpdateGlobalState(const GPU_SceneData &sceneData) {
@@ -372,25 +433,68 @@ void Vulkan_Backend::UpdateGlobalState(const GPU_SceneData &sceneData) {
 #endif
 }
 
-void Vulkan_Backend::ClearColor(f32 r, f32 g, f32 b, f32 a) {
-   VkClearColorValue clearValue;
-    
-   auto *cmdbuf = GetCurrentCommandBuffer();
+void Vulkan_Backend::CreateLastRenderPass() {
 
-    VkImageSubresourceRange subImage {};
-    subImage.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    subImage.baseMipLevel = 0;
-    subImage.levelCount = VK_REMAINING_MIP_LEVELS;
-    subImage.baseArrayLayer = 0;
-    subImage.layerCount = VK_REMAINING_ARRAY_LAYERS;
+        VkAttachmentDescription depthAttachment {};
+        depthAttachment.format = FindDepthFormat(m_renderDevice.physicalDevice);
+        depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+        depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+        depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        depthAttachment.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
+        VkAttachmentReference depthAttachmentRef {};
+        depthAttachmentRef.attachment = 1;
+        depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-}
+        VkAttachmentReference colorAttachmentRef = {};
+        colorAttachmentRef.attachment = 0;
+        colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-void Vulkan_Backend::EndDefaultPass() {
-    auto *cmdbuf = GetCurrentCommandBuffer();
+        VkAttachmentDescription colorAttachment = {};
+        colorAttachment.format = m_swapchain->imageFormat;
+        colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+        colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+        colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        colorAttachment.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
-    vkCmdEndRenderPass(*cmdbuf);
+        VkSubpassDescription subpass = {};
+        subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+        subpass.colorAttachmentCount = 1;
+        subpass.pColorAttachments = &colorAttachmentRef;
+        subpass.pDepthStencilAttachment = &depthAttachmentRef;
+
+        VkSubpassDependency dependency = {};
+        dependency.dstSubpass = 0;
+        dependency.dstAccessMask =
+            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        dependency.dstStageMask =
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+        dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+        dependency.srcAccessMask = 0;
+        dependency.srcStageMask =
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+
+        std::array<VkAttachmentDescription, 2> attachments = {colorAttachment, depthAttachment};
+
+        VkRenderPassCreateInfo renderPassInfo = {};
+        renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+        renderPassInfo.attachmentCount = static_cast<u32>(attachments.size());
+        renderPassInfo.pAttachments = attachments.data();
+        renderPassInfo.subpassCount = 1;
+        renderPassInfo.pSubpasses = &subpass;
+        renderPassInfo.dependencyCount = 1;
+        renderPassInfo.pDependencies = &dependency;
+
+        if (vkCreateRenderPass(m_renderDevice.device, &renderPassInfo, nullptr, &m_lastRenderPass) != VK_SUCCESS) {
+            fprintf(stderr, "Failed to create render pass\n");
+            exit(1);
+        }
 }
 
 VkCommandBuffer *Vulkan_Backend::GetCurrentCommandBuffer() {

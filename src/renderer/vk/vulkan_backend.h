@@ -3,6 +3,7 @@
 #include "vulkan_pipeline.h"
 #include "vulkan_swapchain.h"
 #include "vulkan_multimesh_feature.h"
+#include "vulkan_grid_feature.h"
 
 #include <memory>
 #include <vector>
@@ -22,16 +23,19 @@ public:
     FrameStatus BeginFrame() override;
     void        EndFrame() override;
     void        DrawEntities(FrameStatus frame, GPU_SceneData *sceneData, std::initializer_list<Entity *> entities) override;
-    void        BeginDefaultPass() override;
-    void        EndDefaultPass() override;
+    void        DrawGrid(FrameStatus frame, GPU_SceneData *sceneData);
+    void        ClearColor(FrameStatus frame, f32 r, f32 g, f32 b, f32 a) override;
     void        BeginMultiMeshFeaturePass(FrameStatus frame) override;
     void        EndMultiMeshFeaturePass(FrameStatus frame) override;
+    void        BeginGridPass(FrameStatus frame) override;
+    void        EndGridPass(FrameStatus frame) override;
+
     void        CreateModel(std::vector<InstanceData> &instances,
                     std::vector<MaterialDescr> &materials,
                     const std::vector<std::string> &textureFilenames,
                     Model &model) override;
 
-    void        ClearColor(f32 r, f32 g, f32 b, f32 a) override;
+    void        CreatePlane(Texture *texture) override;
     void       *GetDefaultRenderPass() override;
     void       *GetRenderDevice() override;
     void       *GetSwapchain() override;
@@ -44,8 +48,12 @@ public:
 
 
 private:
+    void                                CreateLastRenderPass();
+
     Vulkan_MultiMeshFeature *           m_multiMeshFeature;
+    Vulkan_GridFeature *                m_gridFeature;
     Vulkan_RenderDevice                 m_renderDevice;
+    VkRenderPass                        m_lastRenderPass;
     std::unique_ptr<Vulkan_Swapchain>   m_swapchain;
     std::vector<VkCommandBuffer>        m_commandBuffers;
     u32                                 m_currentImageIndex;

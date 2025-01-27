@@ -67,10 +67,19 @@ void main()
     vec3 diffuse = diffuseStrength * diffuseColor * diffuseMap.rgb;
 
     // specular
+    const bool blin = true;
     vec3 viewDir = normalize(ubo.viewPos - fragPos);
-    vec3 reflectDir = reflect(-lightDir, norm);
-    float specularIntensity = pow(max(dot(viewDir, reflectDir), 0.0), 32);
+    float specularIntensity = 1.0f;
+    if (blin) {
+        vec3 halfwayDir = normalize(viewDir + lightDir);    
+        specularIntensity = pow(max(dot(normal, halfwayDir), 0.0), 32);
+    } else {
+        vec3 reflectDir = reflect(-lightDir, norm);
+        specularIntensity = pow(max(dot(viewDir, reflectDir), 0.0), 32);
+    }
+   
     vec3 specular = specularColor * specularIntensity * specularMap.rgb;
+
     FragColor = vec4(ambient + diffuse + specular, 1.0);
 }
 

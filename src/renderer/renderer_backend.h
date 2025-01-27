@@ -14,9 +14,15 @@ public:
     virtual void        OnResized(u32 width, u32 height) = 0;
     virtual FrameStatus BeginFrame() = 0;
     virtual void        EndFrame() = 0;
+    virtual void        ClearColor(FrameStatus frame, f32 r, f32 g, f32 b, f32 a) = 0;
 
     virtual void DrawEntities(FrameStatus frame, GPU_SceneData *sceneData, std::initializer_list<Entity *> entities) = 0;
 
+    virtual void DrawGrid(FrameStatus frame, GPU_SceneData *sceneData) {
+    }
+
+    virtual void CreatePlane(Texture *texture) {
+    }
     virtual void CreateModel(std::vector<InstanceData> &instances,
         std::vector<MaterialDescr> &materials,
         const std::vector<std::string> &textureFilenames,
@@ -38,12 +44,10 @@ public:
     }
     virtual void UpdateGlobalState(const GPU_SceneData &sceneData) {
     }
-    virtual void ClearColor(f32 r, f32 g, f32 b, f32 a) {
-    }
 
-    virtual void BeginDefaultPass() {
+    virtual void BeginGridPass(FrameStatus frame) {
     }
-    virtual void EndDefaultPass() {
+    virtual void EndGridPass(FrameStatus frame) {
     }
     
     virtual void BeginMultiMeshFeaturePass(FrameStatus frame) {

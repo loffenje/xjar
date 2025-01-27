@@ -20,18 +20,18 @@ struct FrameStatus {
 
     // Vulkan stuff
     void *commandBuffer;
+    void *defaultPass;
+    void *multimeshPass;
     u32   currentImage;
 };
 
 struct GPU_SceneData {
-    glm::mat4 viewMat;
-    glm::mat4 projMat;
-
-    glm::vec3 viewPos;
-    glm::vec4 ambientColor;
-    glm::vec4 sunlightDir;
-    glm::vec4 sunlightColor;
+    alignas(16) glm::mat4 viewMat;
+    alignas(16)  glm::mat4 projMat;
+    alignas(16)  glm::vec3 viewPos;
 };
+
+static_assert(sizeof(GPU_SceneData) % 16 == 0, "GPU_SceneData should be padded to 16 bytes");
 
 struct Vertex {
     glm::vec3 pos;
