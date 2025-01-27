@@ -1,11 +1,10 @@
+#include "pch.h"
 #include "texture_manager.h"
-
 #include "renderer/resource_types.h"
 #include "renderer/render_system.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
-#include <array>
 
 namespace xjar {
 

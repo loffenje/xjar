@@ -1,5 +1,5 @@
 #pragma once
-
+#include "pch.h"
 #include "vulkan_swapchain.h"
 #include "vulkan_multimesh_feature.h"
 #include "vulkan_render_device.h"
@@ -8,14 +8,9 @@
 #include "vulkan_texture.h"
 
 #include "io.h"
-#include <glm/vec4.hpp>
-#include <glm/mat4x4.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
-#include <array>
 #include "world.h"
 #include "window.h"
-#include "material_system.h"
+#include "material_descr.h"
 #include "texture_manager.h"
 
 namespace xjar {
@@ -51,8 +46,8 @@ void Vulkan_MultiMeshFeature::Destroy() {
     vkDestroyImage(m_renderDevice->device, m_depthImage, nullptr);
     vkFreeMemory(m_renderDevice->device, m_depthImageMemory, nullptr);
   
-    u32 imageCount = m_swapchain->images.size();
-    for (u32 i = 0; i < imageCount; i++) {
+    size_t imageCount = m_swapchain->images.size();
+    for (size_t i = 0; i < imageCount; i++) {
         vkDestroyFramebuffer(m_renderDevice->device, m_framebuffers[i], nullptr);
         m_dsAllocators[i].DestroyPools(m_renderDevice->device);
 
@@ -137,8 +132,8 @@ void Vulkan_MultiMeshFeature::OnResize(Vulkan_Swapchain *swapchain) {
     m_swapchain = swapchain;
 
     vkDestroyImageView(m_renderDevice->device, m_depthImageView, nullptr);
-    u32 imageCount = m_swapchain->images.size();
-    for (u32 i = 0; i < imageCount; i++) {
+    size_t imageCount = m_swapchain->images.size();
+    for (size_t i = 0; i < imageCount; i++) {
         vkDestroyFramebuffer(m_renderDevice->device, m_framebuffers[i], nullptr);
     }
 
@@ -159,18 +154,18 @@ void Vulkan_MultiMeshFeature::CreateModel(std::vector<InstanceData>  &instances,
     ModelResources &res = m_models[m_modelID++];
     m_modelCount++;
 
-    res.m_maxInstanceCount = instances.size();
+    res.m_maxInstanceCount = static_cast<u32>(instances.size());
     res.m_instances = std::move(instances);
 
-    const u32 vertexDataSize = model.mesh.vertexData.size() * sizeof(model.mesh.vertexData[0]);
-    const u32 indexDataSize = model.mesh.indexData.size() * sizeof(model.mesh.indexData[0]);
-    const u32 materialsSize = materials.size() * sizeof(MaterialDescr);
-    const u32 indirectDataSize = res.m_maxInstanceCount * sizeof(VkDrawIndirectCommand);
+    const size_t vertexDataSize = model.mesh.vertexData.size() * sizeof(model.mesh.vertexData[0]);
+    const size_t indexDataSize = model.mesh.indexData.size() * sizeof(model.mesh.indexData[0]);
+    const size_t materialsSize = materials.size() * sizeof(MaterialDescr);
+    const size_t indirectDataSize = res.m_maxInstanceCount * sizeof(VkDrawIndirectCommand);
 
     res.m_maxInstanceSize = res.m_maxInstanceCount * sizeof(InstanceData);
 
     res.m_materials = std::move(materials);
-    res.m_maxMaterialSize = materialsSize;
+    res.m_maxMaterialSize = static_cast<u32>(materialsSize);
 
     res.m_loadedTextures.reserve(textureFilenames.size());
 
@@ -194,8 +189,8 @@ void Vulkan_MultiMeshFeature::CreateModel(std::vector<InstanceData>  &instances,
 
     UploadBufferData(m_renderDevice, res.m_materialBufferMemory, 0, res.m_materials.data(), materialsSize);
 
-    res.m_maxVertexBufferSize = vertexDataSize;
-    res.m_maxIndexBufferSize = indexDataSize;
+    res.m_maxVertexBufferSize = static_cast<u32>(vertexDataSize);
+    res.m_maxIndexBufferSize = static_cast<u32>(indexDataSize);
 
 
     if ((res.m_maxVertexBufferSize & (g_offsetAlignment - 1)) != 0) {
@@ -320,7 +315,7 @@ void Vulkan_MultiMeshFeature::AllocateDescriptorSets(ModelResources &res) {
         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         write.dstBinding = 5;
         write.dstSet = VK_NULL_HANDLE;
-        write.descriptorCount = imageInfos.size();
+        write.descriptorCount = static_cast<u32>(imageInfos.size());
         write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         write.pImageInfo = imageInfos.data();
 
@@ -334,9 +329,9 @@ void Vulkan_MultiMeshFeature::AllocateDescriptorSets(ModelResources &res) {
 void Vulkan_MultiMeshFeature::CreateFramebuffers() {
     auto window = GetWindow(); 
 
-    u32 imageCount = m_swapchain->images.size();
+    size_t imageCount = m_swapchain->images.size();
     m_framebuffers.resize(imageCount);
-    for (u32 i = 0; i < imageCount; i++) {
+    for (size_t i = 0; i < imageCount; i++) {
         std::array<VkImageView, 2> attachments = {m_swapchain->imageViews[i], m_depthImageView};
 
         VkFramebufferCreateInfo framebufferInfo = {};

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "renderer_types.h"
-#include "material_system.h"
+#include "material_descr.h"
 
 namespace xjar {
 

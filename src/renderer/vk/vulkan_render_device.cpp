@@ -1,23 +1,6 @@
+#include "pch.h"
 #include "vulkan_render_device.h"
-#include "types.h"
-#if RENDERER_BACKEND == OpenGL
-#include "glfw_gl.h"
-#else
-#include "glfw_vk.h"
-#endif
-
 #include "window.h"
-#include <stdio.h>
-#include <vector>
-#include <optional>
-#include <set>
-#include <iostream>
-#include <cstdint>
-#include <limits>
-#include <algorithm>
-#include <string_view>
-#include <span>
-#include <array>
 
 namespace xjar {
 

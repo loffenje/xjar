@@ -1,5 +1,5 @@
 #pragma once
-
+#include "pch.h"
 #include "vulkan_swapchain.h"
 #include "vulkan_grid_feature.h"
 #include "vulkan_render_device.h"
@@ -8,14 +8,9 @@
 #include "vulkan_texture.h"
 
 #include "io.h"
-#include <glm/vec4.hpp>
-#include <glm/mat4x4.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
-#include <array>
 #include "world.h"
 #include "window.h"
-#include "material_system.h"
+#include "material_descr.h"
 #include "texture_manager.h"
 
 namespace xjar {
@@ -77,9 +72,9 @@ void Vulkan_GridFeature::BeginPass(FrameStatus frame) {
 void Vulkan_GridFeature::CreateFramebuffers() {
     auto window = GetWindow();
 
-    u32 imageCount = m_swapchain->images.size();
+    size_t imageCount = m_swapchain->images.size();
     m_framebuffers.resize(imageCount);
-    for (u32 i = 0; i < imageCount; i++) {
+    for (size_t i = 0; i < imageCount; i++) {
         std::array<VkImageView, 2> attachments = {m_swapchain->imageViews[i], m_swapchain->depthImageViews[i]};
 
         VkFramebufferCreateInfo framebufferInfo = {};
@@ -167,7 +162,7 @@ void Vulkan_GridFeature::CreateColorRenderPass() {
 void Vulkan_GridFeature::Destroy() {
     vkDestroyRenderPass(m_renderDevice->device, m_renderPass, nullptr);
 
-    u32 imageCount = m_swapchain->images.size();
+    size_t imageCount = m_swapchain->images.size();
 
     vkDestroyDescriptorPool(m_renderDevice->device, m_dsPool, nullptr);
 
@@ -224,8 +219,8 @@ void Vulkan_GridFeature::Draw(FrameStatus frame, GPU_SceneData *sceneData) {
 void Vulkan_GridFeature::OnResize(Vulkan_Swapchain *swapchain) {
     m_swapchain = swapchain;
 
-    u32 imageCount = m_swapchain->images.size();
-    for (u32 i = 0; i < imageCount; i++) {
+    size_t imageCount = m_swapchain->images.size();
+    for (size_t i = 0; i < imageCount; i++) {
         vkDestroyFramebuffer(m_renderDevice->device, m_framebuffers[i], nullptr);
     }
 

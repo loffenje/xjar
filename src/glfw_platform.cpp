@@ -1,14 +1,10 @@
-#include "types.h"
+#include "pch.h"
 #if RENDERER_BACKEND == OpenGL
 #include "glfw_gl.h"
 #else
 #include "glfw_vk.h"
 #endif
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 #include "renderer/render_system.h"
 #include "world.h"
 #include "game_input.h"
@@ -205,7 +201,7 @@ int main() {
         auto frame = renderSystem.BeginFrame();
         if (frame.success) {
 
-            renderSystem.ClearColor(frame, 0.2f, 0.2, 0.2, 1.0f);
+            renderSystem.ClearColor(frame, 0.2f, 0.2f, 0.2f, 1.0f);
 
             renderSystem.DrawGrid(frame, &sceneData);
             renderSystem.DrawEntities(frame, &sceneData, {ent, ent2, ent3});

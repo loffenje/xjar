@@ -5,8 +5,6 @@
 #include "vulkan_multimesh_feature.h"
 #include "vulkan_grid_feature.h"
 
-#include <memory>
-#include <vector>
 
 namespace xjar {
 

@@ -1,3 +1,4 @@
+#include "pch.h"
 #include "vulkan_swapchain.h"
 #include "types.h"
 #if RENDERER_BACKEND == OpenGL
@@ -8,9 +9,6 @@
 
 #include "window.h"
 #include "vulkan_render_device.h"
-
-#include <array>
-#include <algorithm>
 
 namespace xjar {
 
@@ -142,7 +140,7 @@ void CreateDepthResources(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice *rd) 
     VkFormat depthFormat = FindDepthFormat(rd->physicalDevice);
     swapchain->depthFormat = depthFormat;
 
-    u32 imageCount = swapchain->images.size();
+    size_t imageCount = swapchain->images.size();
 
     swapchain->depthImages.resize(imageCount);
     swapchain->depthImageMemories.resize(imageCount);
@@ -191,9 +189,9 @@ void CreateDepthResources(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice *rd) 
 }
 
 void CreateFramebuffers(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice *rd) {
-    u32 imageCount = swapchain->images.size();
+    size_t imageCount = swapchain->images.size();
     swapchain->framebuffers.resize(imageCount);
-    for (u32 i = 0; i < imageCount; i++) {
+    for (size_t i = 0; i < imageCount; i++) {
         std::array<VkImageView, 2> attachments = {swapchain->imageViews[i], swapchain->depthImageViews[i]};
 
         VkExtent2D              swapChainExtent = swapchain->swapchainExtent;
@@ -218,7 +216,7 @@ void CreateFramebuffers(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice *rd) {
 }
 
 void CreateSync(Vulkan_Swapchain *swapchain, Vulkan_RenderDevice *rd) {
-    u32 imageCount = swapchain->images.size();
+    size_t imageCount = swapchain->images.size();
 
     swapchain->imageAvailableSems.resize(MAX_FRAMES_IN_FLIGHT);
     swapchain->renderFinishedSems.resize(MAX_FRAMES_IN_FLIGHT);

@@ -1,10 +1,7 @@
 #include "types.h"
 
 #include "renderer/renderer_types.h"
-#include <assimp/scene.h>
-#include <assimp/postprocess.h>
-#include <assimp/Importer.hpp>
-#include "material_system.h"
+#include "material_descr.h"
 
 namespace {
 std::vector<xjar::Mesh>             g_meshes;

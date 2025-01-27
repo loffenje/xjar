@@ -1,18 +1,10 @@
+#include "pch.h"
 #include "vulkan_backend.h"
-
 #include "vulkan_swapchain.h"
 #include "vulkan_ds.h"
 #include "vulkan_texture.h"
-#include <glm/mat4x4.hpp>
-#include <array>
 #include "window.h"
 
-#include "types.h"
-#if RENDERER_BACKEND == OpenGL
-#include "glfw_gl.h"
-#else
-#include "glfw_vk.h"
-#endif
 
 namespace xjar {
 

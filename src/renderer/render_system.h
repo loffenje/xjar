@@ -2,8 +2,7 @@
 
 #include "resource_types.h"
 #include "renderer_types.h"
-#include "material_system.h"
-#include <vector>
+#include "material_descr.h"
 
 namespace xjar {
 

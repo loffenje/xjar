@@ -5,8 +5,7 @@
 #include "renderer/camera.h"
 #include "vulkan_pipeline.h"
 #include "vulkan_ds.h"
-#include "material_system.h"
-#include <unordered_set>
+#include "material_descr.h"
 
 namespace xjar {
 

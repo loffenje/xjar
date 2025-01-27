@@ -1,3 +1,4 @@
+#include "pch.h"
 #include "vulkan_ds.h"
 
 namespace xjar {
@@ -90,7 +91,7 @@ void DescriptorAllocator::Init(VkDevice device, u32 initSets, std::span<PoolSize
     }
 
     VkDescriptorPool newPool = CreatePool(device, initSets, poolRatios);
-    m_setsPerPool = initSets * 1.5;
+    m_setsPerPool = initSets << 1;
     m_readyPools.push_back(newPool);
 }
 
@@ -159,7 +160,7 @@ VkDescriptorPool DescriptorAllocator::GetPool(VkDevice device) {
     } else {
         newPool = CreatePool(device, m_setsPerPool, m_ratios);
 
-        m_setsPerPool = m_setsPerPool * 1.5;
+        m_setsPerPool = m_setsPerPool << 1;
         if (m_setsPerPool > 4092) {
             m_setsPerPool = 4092;
         }

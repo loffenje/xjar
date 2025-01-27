@@ -41,9 +41,10 @@ set(SRCS
     src/window.cpp
     src/world.cpp
     src/texture_manager.cpp
-    src/material_system.cpp
     src/renderer/render_system.cpp
     ${RENDERER_SRC})
+
+file(GLOB HEADERS "src/*.h")
 
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
@@ -66,7 +67,14 @@ include_directories(${PROJECT_SOURCE_DIR})
 include_directories(${PROJECT_SOURCE_DIR}/src)
 include_directories(3rd)
 
-add_executable(${PROJECT_NAME} ${SRCS})
+add_executable(${PROJECT_NAME} ${SRCS} ${HEADERS})
+
+target_precompile_headers(${PROJECT_NAME} PRIVATE src/pch.h)
+
+if(MSVC)
+    target_compile_options(${PROJECT_NAME} PRIVATE /Ycpch.h)  # Use PCH
+    target_compile_options(${PROJECT_NAME} PRIVATE /Fp${CMAKE_BINARY_DIR}/pch.pch)  # Output PCH file
+endif()
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE RENDERER_BACKEND=${RENDERER_BACKEND})
 

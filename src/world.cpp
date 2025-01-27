@@ -1,6 +1,5 @@
+#include "pch.h"
 #include "world.h"
-#include <assert.h>
-#include <string.h>
 
 namespace xjar {
 

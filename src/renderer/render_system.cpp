@@ -1,4 +1,4 @@
-#include "types.h"
+#include "pch.h"
 #include "render_system.h"
 #include "resource_types.h"
 
@@ -13,10 +13,6 @@
 #endif
 
 #include "texture_manager.h"
-#include <glm/vec4.hpp>
-#include <glm/mat4x4.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
 #include "window.h"
 
 namespace xjar {
