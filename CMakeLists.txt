@@ -42,7 +42,6 @@ set(SRCS
     src/world.cpp
     src/texture_manager.cpp
     src/renderer/render_system.cpp
-    src/renderer/pipeline.cpp
     ${RENDERER_SRC})
 
 file(GLOB HEADERS "src/*.h")
