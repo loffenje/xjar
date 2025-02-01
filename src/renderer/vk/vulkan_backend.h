@@ -21,7 +21,7 @@ public:
     FrameStatus BeginFrame() override;
     void        EndFrame() override;
     void        DrawEntities(FrameStatus frame, GPU_SceneData *sceneData, std::initializer_list<Entity *> entities) override;
-    void        DrawGrid(FrameStatus frame, GPU_SceneData *sceneData);
+    void        DrawGrid(FrameStatus frame, GPU_SceneData *sceneData) override;
     void        ClearColor(FrameStatus frame, f32 r, f32 g, f32 b, f32 a) override;
     void        BeginMultiMeshFeaturePass(FrameStatus frame) override;
     void        EndMultiMeshFeaturePass(FrameStatus frame) override;
@@ -33,7 +33,6 @@ public:
                     const std::vector<std::string> &textureFilenames,
                     Model &model) override;
 
-    void        CreatePlane(Texture *texture) override;
     void       *GetDefaultRenderPass() override;
     void       *GetRenderDevice() override;
     void       *GetSwapchain() override;

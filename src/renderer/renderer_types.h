@@ -37,6 +37,14 @@ struct Vertex {
     glm::vec3 pos;
     glm::vec3 norm;
     glm::vec2 texcoord;
+
+    Vertex() = default;
+    Vertex (f32 x, f32 y, f32 z,
+                f32 nx, f32 ny, f32 nz,
+                f32 uvx, f32 uvy):
+        pos{x, y, z},
+        norm{nx, ny, nz},
+        texcoord{uvx, uvy} {}
 };
 
 struct Mesh {
@@ -83,6 +91,10 @@ struct InstanceData {
     u32 transformIndex;
 };
 
+struct ModelID {
+    int modelIndex;
+    int instanceCount;
+};
 struct Model {
     Texture      texture;
     glm::mat4    localTransform;

@@ -17,6 +17,8 @@ namespace xjar {
 
 static u32 g_offsetAlignment;
 
+static constexpr int MAX_COMMANDS = 2048;
+
 void Vulkan_MultiMeshFeature::Init(Vulkan_RenderDevice *device, Vulkan_Swapchain *swapchain) {
     m_renderDevice = device;
     m_swapchain = swapchain;
@@ -27,7 +29,29 @@ void Vulkan_MultiMeshFeature::Init(Vulkan_RenderDevice *device, Vulkan_Swapchain
     CreateDescriptorPool();
     CreatePipeline();
     CreateUniformBuffers();
+    
+	VkSamplerCreateInfo sampler {};
+    sampler.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    sampler.magFilter = VK_FILTER_NEAREST;
+    sampler.minFilter = VK_FILTER_NEAREST;
 
+    vkCreateSampler(m_renderDevice->device, &sampler, nullptr, &m_defaultSamplerNearest);
+
+    sampler.magFilter = VK_FILTER_LINEAR;
+    sampler.minFilter = VK_FILTER_LINEAR;
+    vkCreateSampler(m_renderDevice->device, &sampler, nullptr, &m_defaultSamplerLinear);
+
+    size_t imageCount = m_swapchain->images.size();
+
+    m_indirectBuffers.resize(imageCount);
+    m_indirectBuffersMemory.resize(imageCount);
+
+    for (size_t i = 0; i < imageCount; i++) {
+        CreateBuffer(m_renderDevice, MAX_COMMANDS * sizeof(VkDrawIndirectCommand),
+                     VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
+                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                     m_indirectBuffers[i], m_indirectBuffersMemory[i]);
+    }
     m_models.resize(32);
 
     VkPhysicalDeviceProperties devProps;
@@ -53,6 +77,9 @@ void Vulkan_MultiMeshFeature::Destroy() {
 
         vkDestroyBuffer(m_renderDevice->device, m_uniformBuffers[i], nullptr);
         vkFreeMemory(m_renderDevice->device, m_uniformBuffersMemory[i], nullptr);
+
+        vkDestroyBuffer(m_renderDevice->device, m_indirectBuffers[i], nullptr);
+        vkFreeMemory(m_renderDevice->device, m_indirectBuffersMemory[i], nullptr);
 
     }
 
@@ -141,7 +168,6 @@ void Vulkan_MultiMeshFeature::OnResize(Vulkan_Swapchain *swapchain) {
     CreateFramebuffers();
 }
 
-
 void Vulkan_MultiMeshFeature::CreateModel(std::vector<InstanceData>  &instances,
                 std::vector<MaterialDescr> &materials,
                 const std::vector<std::string>   &textureFilenames,
@@ -157,16 +183,16 @@ void Vulkan_MultiMeshFeature::CreateModel(std::vector<InstanceData>  &instances,
     res.m_maxInstanceCount = static_cast<u32>(instances.size());
     res.m_instances = std::move(instances);
 
+    m_instanceCount += res.m_maxInstanceCount;
+
     const size_t vertexDataSize = model.mesh.vertexData.size() * sizeof(model.mesh.vertexData[0]);
     const size_t indexDataSize = model.mesh.indexData.size() * sizeof(model.mesh.indexData[0]);
     const size_t materialsSize = materials.size() * sizeof(MaterialDescr);
     const size_t indirectDataSize = res.m_maxInstanceCount * sizeof(VkDrawIndirectCommand);
 
     res.m_maxInstanceSize = res.m_maxInstanceCount * sizeof(InstanceData);
-
     res.m_materials = std::move(materials);
     res.m_maxMaterialSize = static_cast<u32>(materialsSize);
-
     res.m_loadedTextures.reserve(textureFilenames.size());
 
     auto &textureManager = TextureManager::Instance();
@@ -178,9 +204,6 @@ void Vulkan_MultiMeshFeature::CreateModel(std::vector<InstanceData>  &instances,
     const size_t imageCount = m_swapchain->images.size();
     res.m_instanceBuffers.resize(imageCount);
     res.m_instanceBuffersMemory.resize(imageCount);
-
-    res.m_indirectBuffers.resize(imageCount);
-    res.m_indirectBuffersMemory.resize(imageCount);
 
     CreateBuffer(m_renderDevice, res.m_maxMaterialSize,
                 VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
@@ -208,28 +231,25 @@ void Vulkan_MultiMeshFeature::CreateModel(std::vector<InstanceData>  &instances,
     UploadBufferData(m_renderDevice, res.m_storageBufferMemory, 0, model.mesh.vertexData.data(), vertexDataSize);
     UploadBufferData(m_renderDevice, res.m_storageBufferMemory, res.m_maxVertexBufferSize, model.mesh.indexData.data(), indexDataSize);
 
+    size_t offsetMemory = *handle * sizeof(VkDrawIndirectCommand);
     for (auto i = 0; i < imageCount; i++) {
-        CreateBuffer(m_renderDevice, indirectDataSize,
-                     VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
-                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                     res.m_indirectBuffers[i], res.m_indirectBuffersMemory[i]);
 
         VkDrawIndirectCommand *data = nullptr;
-        vkMapMemory(m_renderDevice->device, res.m_indirectBuffersMemory[i],
-            0, res.m_maxInstanceCount * sizeof(VkDrawIndirectCommand),
+        vkMapMemory(m_renderDevice->device, m_indirectBuffersMemory[i],
+            offsetMemory, res.m_maxInstanceCount * sizeof(VkDrawIndirectCommand),
             0, (void **)&data);
 
         for (u32 i = 0; i < res.m_maxInstanceCount; i++) {
             const u32 j = res.m_instances[i].meshIndex;
             const u32 lod = res.m_instances[i].LOD;
             data[i] = {
-                .vertexCount = (u32)model.mesh.meshes[j].LodSize(lod),
+                .vertexCount = (u32)model.mesh.meshes[j].LodSize(j),
                 .instanceCount = 1,
                 .firstVertex = 0,
                 .firstInstance = i};
         }
 
-        vkUnmapMemory(m_renderDevice->device, res.m_indirectBuffersMemory[i]);
+        vkUnmapMemory(m_renderDevice->device, m_indirectBuffersMemory[i]);
 
         CreateBuffer(m_renderDevice, res.m_maxInstanceSize,
                      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
@@ -447,25 +467,13 @@ void Vulkan_MultiMeshFeature::CreatePipeline() {
 
     vkDestroyShaderModule(m_renderDevice->device, fragShaderModule, nullptr);
     vkDestroyShaderModule(m_renderDevice->device, vertShaderModule, nullptr);
-
-    
-	VkSamplerCreateInfo sampler{};
-    sampler.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    sampler.magFilter = VK_FILTER_NEAREST;
-    sampler.minFilter = VK_FILTER_NEAREST;
-
-    vkCreateSampler(m_renderDevice->device, &sampler, nullptr, &m_defaultSamplerNearest);
-
-    sampler.magFilter = VK_FILTER_LINEAR;
-    sampler.minFilter = VK_FILTER_LINEAR;
-    vkCreateSampler(m_renderDevice->device, &sampler, nullptr, &m_defaultSamplerLinear);
 }
 
 void Vulkan_MultiMeshFeature::BeginPass(FrameStatus frame) {
     VkCommandBuffer *vkcmdbuf = (VkCommandBuffer *)frame.commandBuffer;
 
     std::array<VkClearValue, 2> clearValues {};
-    clearValues[0].color = {0.1f, 0.1f, 0.1f, 1.0f};
+    clearValues[0].color = {0.0f, 0.0f, 0.0f, 1.0f};
     clearValues[1].depthStencil = {1.0f, 0};
 
     VkRenderPassBeginInfo passInfo {};
@@ -521,7 +529,8 @@ void Vulkan_MultiMeshFeature::DrawEntities(FrameStatus frame, GPU_SceneData *sce
                            VK_SHADER_STAGE_VERTEX_BIT,
                            0, sizeof(PushConstantData), &constants);
 
-        vkCmdDrawIndirect(*vkcmdbuf, res.m_indirectBuffers[frame.currentImage], 0, res.m_maxInstanceCount, sizeof(VkDrawIndirectCommand));
+        size_t offsetMemory = modelID  * sizeof(VkDrawIndirectCommand);
+        vkCmdDrawIndirect(*vkcmdbuf, m_indirectBuffers[frame.currentImage], offsetMemory, res.m_maxInstanceCount, sizeof(VkDrawIndirectCommand));
     }
 }
 

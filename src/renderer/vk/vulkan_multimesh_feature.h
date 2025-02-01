@@ -28,13 +28,10 @@ struct ModelResources {
     VkDeviceMemory                  m_materialBufferMemory;
 
     // for each swapchain image
-    std::vector<VkBuffer>       m_indirectBuffers;
-    std::vector<VkDeviceMemory> m_indirectBuffersMemory;
     std::vector<VkBuffer>       m_instanceBuffers;
     std::vector<VkDeviceMemory> m_instanceBuffersMemory;
     std::vector<std::string>    m_loadedTextures;
 };
-
 
 inline void DestroyModelResources(VkDevice device, ModelResources &res) {
 
@@ -43,11 +40,6 @@ inline void DestroyModelResources(VkDevice device, ModelResources &res) {
 
     vkDestroyBuffer(device, res.m_materialBuffer, nullptr);
     vkFreeMemory(device, res.m_materialBufferMemory, nullptr);
-
-    for (size_t i = 0; i < res.m_indirectBuffers.size(); i++) {
-        vkDestroyBuffer(device, res.m_indirectBuffers[i], nullptr);
-        vkFreeMemory(device, res.m_indirectBuffersMemory[i], nullptr);
-    }
 
     for (size_t i = 0; i < res.m_instanceBuffers.size(); i++) {
         vkDestroyBuffer(device, res.m_instanceBuffers[i], nullptr);
@@ -96,15 +88,18 @@ private:
     VkImageView    m_depthImageView;
     VkDeviceMemory m_depthImageMemory;
 
+    std::vector<VkBuffer>       m_indirectBuffers;
+    std::vector<VkDeviceMemory> m_indirectBuffersMemory;
+
     VkSampler                   m_defaultSamplerLinear;
     VkSampler                   m_defaultSamplerNearest;
-
 
     std::vector<VkBuffer>       m_uniformBuffers;
     std::vector<VkDeviceMemory> m_uniformBuffersMemory;
 
     std::deque<ModelResources>  m_models;
     u32                         m_modelCount = 0;
+    int                         m_instanceCount = 0;
     int                         m_modelID = 0;
 
 };

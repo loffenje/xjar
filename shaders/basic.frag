@@ -33,12 +33,10 @@ layout(binding = 5) uniform sampler2D textures[];
 void main()
 {
 
-    const vec3 lightPos = vec3(1.0f, 1.2f, 2.0f);
-    const vec3 lightColor = vec3(1.0f, 1.0f, 1.0f);
+    const vec3 lightPos = vec3(0.0f, 0.0f, 0.0f);
     
-    const vec3 ambientColor = vec3(0.2f, 0.2f, 0.2f);
-    const vec3 diffuseColor = vec3(0.5f, 0.5f, 0.5f);
-    const vec3 specularColor = vec3(1.0f, 1.0f, 1.0f);
+    const vec3 ambientColor = vec3(0.05f);
+    const vec3 specularColor = vec3(0.3f);
 
 
     MaterialData matData = mat_bo.data[matIndex];
@@ -64,20 +62,21 @@ void main()
     vec3 norm = normalize(normal);
     vec3 lightDir = normalize(lightPos - fragPos);
     float diffuseStrength = max(dot(lightDir, norm), 0.0f);
-    vec3 diffuse = diffuseStrength * diffuseColor * diffuseMap.rgb;
+    vec3 diffuse = diffuseStrength * diffuseMap.rgb;
 
     // specular
     const bool blin = true;
     vec3 viewDir = normalize(ubo.viewPos - fragPos);
-    float specularIntensity = 1.0f;
+    float specularIntensity = 0.0f;
     if (blin) {
         vec3 halfwayDir = normalize(viewDir + lightDir);    
-        specularIntensity = pow(max(dot(normal, halfwayDir), 0.0), 32);
+        specularIntensity = pow(max(dot(normal, halfwayDir), 0.0), 16.0);
     } else {
         vec3 reflectDir = reflect(-lightDir, norm);
-        specularIntensity = pow(max(dot(viewDir, reflectDir), 0.0), 32);
+        specularIntensity = pow(max(dot(viewDir, reflectDir), 0.0), 8.0);
     }
-   
+  
+    
     vec3 specular = specularColor * specularIntensity * specularMap.rgb;
 
     FragColor = vec4(ambient + diffuse + specular, 1.0);

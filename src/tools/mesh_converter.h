@@ -4,21 +4,31 @@
 #include "material_descr.h"
 
 namespace {
-std::vector<xjar::Mesh>             g_meshes;
-std::vector<xjar::MaterialDescr>    g_materials;
-std::vector<std::string>            g_matFiles;
+std::vector<xjar::Mesh>          g_meshes;
+std::vector<xjar::MaterialDescr> g_materials;
+std::vector<std::string>         g_matFiles;
 
-std::vector<u32>        g_indexData;
-std::vector<f32>        g_vertexData;
-u32                     g_indexOffset;
-u32                     g_vertexOffset;
-bool                    g_exportTexcoords = false;
-bool                    g_exportNormals = false;
-u32                     g_numElementsToStore = 3; // by default only vertex elements
+std::vector<u32> g_indexData;
+std::vector<f32> g_vertexData;
+u32              g_indexOffset;
+u32              g_vertexOffset;
+bool             g_exportTexcoords = false;
+bool             g_exportNormals = false;
+u32              g_numElementsToStore = 3; // by default only vertex elements
 
 constexpr char cmdExportTexcoords[] = "-t";
 constexpr char cmdExportNormals[] = "-n";
 
+}
+
+void Clear() {
+    g_indexData.clear();
+    g_vertexData.clear();
+    g_meshes.clear();
+    g_materials.clear();
+    g_matFiles.clear();
+    g_indexOffset = 0;
+    g_vertexOffset = 0;
 }
 
 inline int AddUnique(std::vector<std::string> &files, const std::string &file) {
@@ -86,7 +96,6 @@ xjar::Mesh ConvertAIMesh(const aiMesh *m) {
     const u32 streamElementSize = static_cast<u32>(numElements * sizeof(f32));
     const u32 meshSize = static_cast<u32>(m->mNumVertices * streamElementSize + numIndices * sizeof(u32));
 
-
     for (size_t i = 0; i != m->mNumVertices; i++) {
         const aiVector3D &v = m->mVertices[i];
         const aiVector3D &n = m->mNormals[i];
@@ -105,7 +114,6 @@ xjar::Mesh ConvertAIMesh(const aiMesh *m) {
             g_vertexData.push_back(n.y);
             g_vertexData.push_back(n.z);
         }
-
     }
 
     const xjar::Mesh result = {
@@ -133,9 +141,7 @@ xjar::Mesh ConvertAIMesh(const aiMesh *m) {
 }
 
 void LoadFile(const char *filename, const char *materialDir) {
-    const u32 flags = aiProcess_JoinIdenticalVertices | aiProcess_Triangulate | aiProcess_GenSmoothNormals 
-        | aiProcess_PreTransformVertices | aiProcess_RemoveRedundantMaterials | aiProcess_FindDegenerates 
-        | aiProcess_FindInvalidData | aiProcess_FindInstances | aiProcess_OptimizeMeshes;
+    const u32 flags = aiProcess_JoinIdenticalVertices | aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_PreTransformVertices | aiProcess_RemoveRedundantMaterials | aiProcess_FindDegenerates | aiProcess_FindInvalidData | aiProcess_FindInstances | aiProcess_OptimizeMeshes;
 
     Assimp::Importer importer;
     const aiScene   *scene = importer.ReadFile(filename, flags);
@@ -166,13 +172,95 @@ void SaveStringList(FILE *f, const std::vector<std::string> &lines) {
         fwrite(s.c_str(), size + 1, 1, f);
     }
 }
+
+void MeshPack(xjar::Vertex *vertices, int verticesNum, u32 *indices, int indicesNum, int facesNum, const char *outputMeshFile, const char *outputInstanceDataFile, const char *outputMaterialFile, const char *materialFile) {
+    Clear();
+
+    std::string fullpath = materialFile;
+
+    xjar::MaterialDescr material {};
+    material.albedoColor = gpuvec4(1.0f, 1.0f, 1.0f, 1.0f);
+    material.diffuseMap = AddUnique(g_matFiles, fullpath);
+
+    const u32 numIndices = indicesNum;
+    const u32 numElements = g_numElementsToStore + 2 + 3;
+    const u32 streamElementSize = static_cast<u32>(numElements * sizeof(f32));
+    const u32 meshSize = static_cast<u32>(verticesNum * streamElementSize + numIndices * sizeof(u32));
+
+    for (size_t i = 0; i != verticesNum; i++) {
+        xjar::Vertex *v = vertices + i;
+        g_vertexData.push_back(v->pos.x);
+        g_vertexData.push_back(v->pos.y);
+        g_vertexData.push_back(v->pos.z);
+
+        g_vertexData.push_back(v->texcoord.x);
+        g_vertexData.push_back(v->texcoord.y);
+
+        g_vertexData.push_back(v->norm.x);
+        g_vertexData.push_back(v->norm.y);
+        g_vertexData.push_back(v->norm.z);
+    }
+
+    for (size_t i = 0; i != indicesNum; i++) {
+        u32 *index = indices + i;
+        g_indexData.push_back(*index);
+    }
+    const xjar::Mesh mesh = {
+        .lodNum = 1,
+        .streamNum = 1,
+        .materialID = 0,
+        .meshSize = meshSize,
+        .vertexCount = (u32)verticesNum,
+        .indexOffset = 0,
+        .vertexOffset = 0,
+        .lodOffset = {0, numIndices * sizeof(u32)},
+        .streamOffset = {0},
+        .streamElementSize = streamElementSize};
+
+    FILE         *outputMesh = fopen(outputMeshFile, "wb");
+    xjar::MeshHdr hdr = {
+        .magicValue = 0xdeadbeef,
+        .meshNum = 1,
+        .dataStartOffset = (u32)(sizeof(xjar::MeshHdr) + sizeof(xjar::Mesh)),
+        .indexDataSize = (u32)(g_indexData.size() * sizeof(u32)),
+        .vertexDataSize = (u32)(g_vertexData.size() * sizeof(f32))};
+
+    fwrite(&hdr, 1, sizeof(hdr), outputMesh);
+    fwrite(&mesh, hdr.meshNum, sizeof(xjar::Mesh), outputMesh);
+    fwrite(g_indexData.data(), 1, hdr.indexDataSize, outputMesh);
+    fwrite(g_vertexData.data(), 1, hdr.vertexDataSize, outputMesh);
+    fclose(outputMesh);
+
+    FILE *outputInstanceData = fopen(outputInstanceDataFile, "wb");
+
+    xjar::InstanceData instance {
+        .meshIndex = (u32)0,
+        .materialIndex = 0,
+        .LOD = 0,
+        .indexOffset = mesh.indexOffset,
+        .vertexOffset = 0,
+        .transformIndex = 0};
+
+    fwrite(&instance, 1, sizeof(xjar::InstanceData), outputInstanceData);
+    fclose(outputInstanceData);
+
+    FILE *outputMaterial = fopen(outputMaterialFile, "wb");
+
+    u32 matSize = 1;
+    fwrite(&matSize, sizeof(u32), 1, outputMaterial);
+    fwrite(&material, sizeof(xjar::MaterialDescr), matSize, outputMaterial);
+    SaveStringList(outputMaterial, g_matFiles);
+    fclose(outputMaterial);
+}
+
 void MeshConvert(const char *inputFile,
-    const char *outputMeshFile,
-    const char *outputInstanceDataFile,
-    const char *outputMaterialFile,
-    const char *materialDir,
-    bool exportTexcoords,
-    bool exportNormals) {
+                 const char *outputMeshFile,
+                 const char *outputInstanceDataFile,
+                 const char *outputMaterialFile,
+                 const char *materialDir,
+                 bool        exportTexcoords,
+                 bool        exportNormals) {
+    Clear();
 
     if (exportTexcoords) {
         g_numElementsToStore += 2;
@@ -185,7 +273,7 @@ void MeshConvert(const char *inputFile,
 
     LoadFile(inputFile, materialDir);
 
-    FILE *outputMesh = fopen(outputMeshFile, "wb");
+    FILE         *outputMesh = fopen(outputMeshFile, "wb");
     xjar::MeshHdr hdr = {
         .magicValue = 0xdeadbeef,
         .meshNum = (u32)g_meshes.size(),
@@ -206,13 +294,12 @@ void MeshConvert(const char *inputFile,
     g_vertexOffset = 0;
     for (u32 i = 0; i < g_meshes.size(); i++) {
         instanceData.push_back(xjar::InstanceData {
-            .meshIndex = (u32) i,
+            .meshIndex = (u32)i,
             .materialIndex = 0,
             .LOD = 0,
             .indexOffset = g_meshes[i].indexOffset,
             .vertexOffset = g_vertexOffset,
-            .transformIndex = 0
-        });
+            .transformIndex = 0});
 
         g_vertexOffset += g_meshes[i].vertexCount;
     }
@@ -227,5 +314,4 @@ void MeshConvert(const char *inputFile,
     fwrite(g_materials.data(), sizeof(xjar::MaterialDescr), matSize, outputMaterial);
     SaveStringList(outputMaterial, g_matFiles);
     fclose(outputMaterial);
-
 }

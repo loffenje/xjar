@@ -20,14 +20,11 @@ public:
 
     virtual void DrawGrid(FrameStatus frame, GPU_SceneData *sceneData) {
     }
-
-    virtual void CreatePlane(Texture *texture) {
-    }
     virtual void CreateModel(std::vector<InstanceData> &instances,
         std::vector<MaterialDescr> &materials,
         const std::vector<std::string> &textureFilenames,
         Model &model) = 0;
-    
+
     virtual void *GetDefaultRenderPass() {
         return nullptr;
     }

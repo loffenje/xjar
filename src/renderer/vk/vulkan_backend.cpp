@@ -181,9 +181,9 @@ void Vulkan_Backend::CreateTexture(const void *pixels, Texture *texture) {
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     samplerInfo.magFilter = VK_FILTER_LINEAR;
     samplerInfo.minFilter = VK_FILTER_LINEAR;
-    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     samplerInfo.anisotropyEnable = VK_TRUE;
     samplerInfo.maxAnisotropy = 16;
     samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
@@ -199,20 +199,6 @@ void Vulkan_Backend::CreateTexture(const void *pixels, Texture *texture) {
         fprintf(stderr, "Failed to create sampler\n");
         exit(1);
     }
-}
-
-
-void Vulkan_Backend::CreatePlane(Texture *texture) {
-
-    f32 planeVertices[] = {
-        // positions            // normals         // texcoords
-        10.0f, -0.5f, 10.0f, 0.0f, 1.0f, 0.0f, 10.0f, 0.0f,
-        -10.0f, -0.5f, 10.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-        -10.0f, -0.5f, -10.0f, 0.0f, 1.0f, 0.0f, 0.0f, 10.0f,
-
-        10.0f, -0.5f, 10.0f, 0.0f, 1.0f, 0.0f, 10.0f, 0.0f,
-        -10.0f, -0.5f, -10.0f, 0.0f, 1.0f, 0.0f, 0.0f, 10.0f,
-        10.0f, -0.5f, -10.0f, 0.0f, 1.0f, 0.0f, 10.0f, 10.0f};
 }
 
 void Vulkan_Backend::CreateModel(std::vector<InstanceData>      &instances,
@@ -362,7 +348,6 @@ void Vulkan_Backend::DrawGrid(FrameStatus frame, GPU_SceneData *sceneData) {
 void Vulkan_Backend::DrawEntities(FrameStatus frame, GPU_SceneData *sceneData, std::initializer_list<Entity *> entities) {
     m_multiMeshFeature->DrawEntities(frame, sceneData, entities);
 }
-
 
 void Vulkan_Backend::ClearColor(FrameStatus frame, f32 r, f32 g, f32 b, f32 a) {
     VkCommandBuffer *cmdbuf = (VkCommandBuffer *)frame.commandBuffer;

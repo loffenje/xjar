@@ -65,10 +65,6 @@ void RenderSystem::LoadInstanceData(const char *filename, std::vector<InstanceDa
     fclose(file);
 }
 
-void RenderSystem::CreatePlane(Texture *texture) {
-    
-}
-
 void RenderSystem::LoadModel(const char *meshFilename, const char *instanceFilename, const char *materialFilename, Model &model) {
 
     FILE *file = fopen(meshFilename, "rb");
