@@ -77,9 +77,9 @@ int main() {
              "assets/plane.materials",
              "assets/plane/wood.png");
 
-    const u32   window_width = 1280;
-    const u32   window_height = 720;
-    const char *window_title = "game";
+    const u32   window_width = 1920;
+    const u32   window_height = 1080;
+    const char *window_title = "VkDemo";
 
     if (!glfwInit())
         exit(EXIT_FAILURE);
@@ -217,16 +217,17 @@ int main() {
 
         g_FpsCamera.Update(dtForFrame, g_currInput, g_lastMousePos);
 
-        glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(10.0f, 5.0f, 20.0f)); // make sure to initialize matrix to identity matrix first
+        glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(2.0f, 5.0f, 20.0f)); // make sure to initialize matrix to identity matrix first
         ent->model.localTransform = model;
 
-        glm::mat4 model2 = glm::translate(glm::mat4(1.0f), glm::vec3(-10.0f, 5.0f, 0.0f));
+        glm::mat4 model2 = glm::translate(glm::mat4(1.0f), glm::vec3(-15.0f, 5.0f, 0.0f));
         ent2->model.localTransform = model2;
 
-        glm::mat4 model3 = glm::translate(glm::mat4(1.0f), glm::vec3(10.0f, 4.0f, 0.0f));
+        glm::mat4 model3 = glm::translate(glm::mat4(1.0f), glm::vec3(5.0f, 4.0f, 0.0f));
         ent3->model.localTransform = model3;
 
         glm::mat4 model4 = glm::translate(glm::mat4(1.0f), glm::vec3(10.0f, 0.0f, 0.0f));
+        model4 = glm::scale(model4, glm::vec3(2.0f, 5.0f, 1.0f));
         ent4->model.localTransform = model4;
 
         xjar::GPU_SceneData sceneData {};

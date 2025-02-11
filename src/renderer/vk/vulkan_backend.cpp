@@ -20,7 +20,7 @@ void Vulkan_Backend::OnInit() {
 
     m_multiMeshFeature = new Vulkan_MultiMeshFeature();
     m_multiMeshFeature->Init(&m_renderDevice, m_swapchain.get());
-
+   
     m_gridFeature = new Vulkan_GridFeature();
     m_gridFeature->Init(&m_renderDevice, m_swapchain.get());
 }
@@ -287,8 +287,6 @@ FrameStatus Vulkan_Backend::BeginFrame() {
     FrameStatus status {
         .success = true,
         .commandBuffer = cmdbuf,
-        .defaultPass = m_swapchain->renderPass,
-        .multimeshPass = m_multiMeshFeature->GetPass(),
         .currentImage = m_currentImageIndex};
 
     return status;
@@ -333,20 +331,20 @@ void Vulkan_Backend::EndFrame() {
     m_currentFrameIndex = (m_currentFrameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
-void Vulkan_Backend::BeginMultiMeshFeaturePass(FrameStatus frame) {
-    m_multiMeshFeature->BeginPass(frame);
-}
-
-void Vulkan_Backend::EndMultiMeshFeaturePass(FrameStatus frame) {
-    m_multiMeshFeature->EndPass(frame);
-}
-
 void Vulkan_Backend::DrawGrid(FrameStatus frame, GPU_SceneData *sceneData) {
     m_gridFeature->Draw(frame, sceneData);
 }
 
 void Vulkan_Backend::DrawEntities(FrameStatus frame, GPU_SceneData *sceneData, std::initializer_list<Entity *> entities) {
+    if (m_multiMeshFeature->IsShadowsEnabled()) {
+        m_multiMeshFeature->BeginShadowPass(frame);
+        m_multiMeshFeature->DrawEntities(frame, sceneData, entities);
+        m_multiMeshFeature->EndShadowPass(frame);
+    }
+
+    m_multiMeshFeature->BeginDefaultPass(frame);
     m_multiMeshFeature->DrawEntities(frame, sceneData, entities);
+    m_multiMeshFeature->EndDefaultPass(frame);
 }
 
 void Vulkan_Backend::ClearColor(FrameStatus frame, f32 r, f32 g, f32 b, f32 a) {

@@ -30,6 +30,9 @@ void Vulkan_MultiMeshFeature::Init(Vulkan_RenderDevice *device, Vulkan_Swapchain
     CreatePipeline();
     CreateUniformBuffers();
     
+    const u32 imageCount = static_cast<u32>(m_swapchain->images.size());
+
+
 	VkSamplerCreateInfo sampler {};
     sampler.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     sampler.magFilter = VK_FILTER_NEAREST;
@@ -40,8 +43,6 @@ void Vulkan_MultiMeshFeature::Init(Vulkan_RenderDevice *device, Vulkan_Swapchain
     sampler.magFilter = VK_FILTER_LINEAR;
     sampler.minFilter = VK_FILTER_LINEAR;
     vkCreateSampler(m_renderDevice->device, &sampler, nullptr, &m_defaultSamplerLinear);
-
-    size_t imageCount = m_swapchain->images.size();
 
     m_indirectBuffers.resize(imageCount);
     m_indirectBuffersMemory.resize(imageCount);
@@ -57,10 +58,15 @@ void Vulkan_MultiMeshFeature::Init(Vulkan_RenderDevice *device, Vulkan_Swapchain
     VkPhysicalDeviceProperties devProps;
     vkGetPhysicalDeviceProperties(m_renderDevice->physicalDevice, &devProps);
 
+    EnableShadows();
     g_offsetAlignment = static_cast<u32>(devProps.limits.minStorageBufferOffsetAlignment);
 }
 
 void Vulkan_MultiMeshFeature::Destroy() {
+    u32 imageCount = static_cast<u32>(m_swapchain->images.size());
+
+    m_shadowTechnique.Destroy(m_renderDevice, imageCount);
+
     vkDestroySampler(m_renderDevice->device, m_defaultSamplerLinear, nullptr);
     vkDestroySampler(m_renderDevice->device, m_defaultSamplerNearest, nullptr);
 
@@ -70,10 +76,11 @@ void Vulkan_MultiMeshFeature::Destroy() {
     vkDestroyImage(m_renderDevice->device, m_depthImage, nullptr);
     vkFreeMemory(m_renderDevice->device, m_depthImageMemory, nullptr);
   
-    size_t imageCount = m_swapchain->images.size();
-    for (size_t i = 0; i < imageCount; i++) {
+    for (u32 i = 0; i < imageCount; i++) {
         vkDestroyFramebuffer(m_renderDevice->device, m_framebuffers[i], nullptr);
         m_dsAllocators[i].DestroyPools(m_renderDevice->device);
+
+        m_offscreenDsAllocators[i].DestroyPools(m_renderDevice->device);
 
         vkDestroyBuffer(m_renderDevice->device, m_uniformBuffers[i], nullptr);
         vkFreeMemory(m_renderDevice->device, m_uniformBuffersMemory[i], nullptr);
@@ -159,8 +166,8 @@ void Vulkan_MultiMeshFeature::OnResize(Vulkan_Swapchain *swapchain) {
     m_swapchain = swapchain;
 
     vkDestroyImageView(m_renderDevice->device, m_depthImageView, nullptr);
-    size_t imageCount = m_swapchain->images.size();
-    for (size_t i = 0; i < imageCount; i++) {
+    u32 imageCount = static_cast<u32>(m_swapchain->images.size());
+    for (u32 i = 0; i < imageCount; i++) {
         vkDestroyFramebuffer(m_renderDevice->device, m_framebuffers[i], nullptr);
     }
 
@@ -268,14 +275,19 @@ void Vulkan_MultiMeshFeature::CreateDescriptorPool() {
 
     std::vector<PoolSizeRatio> poolSizes = {
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3},
-        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3}
+        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2}
     };
 
     m_dsAllocators.resize(imageCount);
+    m_offscreenDsAllocators.resize(imageCount);
 
     for (u32 i = 0; i < imageCount; i++) {
         DescriptorAllocator &dsAllocator = m_dsAllocators[i];
         dsAllocator.Init(m_renderDevice->device, 1000, poolSizes);
+
+        DescriptorAllocator &offscreenDsAllocator = m_offscreenDsAllocators[i];
+        offscreenDsAllocator.Init(m_renderDevice->device, 1000, poolSizes);
     }
 
     DescriptorLayoutBuilder dsBindings;
@@ -285,6 +297,7 @@ void Vulkan_MultiMeshFeature::CreateDescriptorPool() {
     dsBindings.AddBinding(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);   // instance data buffer
     dsBindings.AddBinding(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT); // material
     dsBindings.AddBinding(5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1024);
+    dsBindings.AddBinding(6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
 
     m_dsLayout = dsBindings.Build(m_renderDevice->device);
 
@@ -307,6 +320,7 @@ void Vulkan_MultiMeshFeature::CreateUniformBuffers() {
 void Vulkan_MultiMeshFeature::AllocateDescriptorSets(ModelResources &res) {
     const u32 imageCount = static_cast<u32>(m_swapchain->images.size());
     res.m_descriptorSets.resize(imageCount);
+    res.m_offscreenDescriptorSets.resize(imageCount);
 
     auto &textureManager = TextureManager::Instance();
     for (u32 i = 0; i < imageCount; i++) {
@@ -320,6 +334,7 @@ void Vulkan_MultiMeshFeature::AllocateDescriptorSets(ModelResources &res) {
         writer.WriteBuffer(3, res.m_instanceBuffers[i], res.m_maxInstanceSize, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
         writer.WriteBuffer(4, res.m_materialBuffer, res.m_maxMaterialSize, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
+        // Bind all loaded textures
         std::vector<VkDescriptorImageInfo> imageInfos;
         for (const auto &textureName : res.m_loadedTextures) {
             Texture texture = textureManager.Acquire(textureName);
@@ -341,8 +356,30 @@ void Vulkan_MultiMeshFeature::AllocateDescriptorSets(ModelResources &res) {
 
         writer.writes.push_back(write);
 
+        writer.WriteImage(6, m_shadowTechnique.m_depthImageView, m_shadowTechnique.m_depthSampler, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        
         writer.UpdateSet(m_renderDevice->device, res.m_descriptorSets[i]);
+    }
 
+    if (m_enableShadows) {
+        VkDescriptorSetAllocateInfo allocInfo {};
+        allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        allocInfo.descriptorPool = m_offscreenDsPool;
+        allocInfo.descriptorSetCount = 1;
+        allocInfo.pSetLayouts = &m_dsLayout;
+
+        for (u32 i = 0; i < imageCount; i++) {
+
+            res.m_offscreenDescriptorSets[i] = m_offscreenDsAllocators[i].Allocate(m_renderDevice->device, m_shadowTechnique.m_dsLayout);
+
+            //shadowmap depth
+            DescriptorWriter writer;
+            writer.WriteBuffer(0, m_shadowTechnique.m_uniformsDepth[i], sizeof(GPU_ShadowDepth), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+            writer.WriteBuffer(1, res.m_storageBuffer, res.m_maxVertexBufferSize, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+            writer.WriteBuffer(2, res.m_storageBuffer, res.m_maxIndexBufferSize, res.m_maxVertexBufferSize, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+            writer.WriteBuffer(3, res.m_instanceBuffers[i], res.m_maxInstanceSize, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+            writer.UpdateSet(m_renderDevice->device, res.m_offscreenDescriptorSets[i]);
+        }
     }
 }
 
@@ -469,7 +506,29 @@ void Vulkan_MultiMeshFeature::CreatePipeline() {
     vkDestroyShaderModule(m_renderDevice->device, vertShaderModule, nullptr);
 }
 
-void Vulkan_MultiMeshFeature::BeginPass(FrameStatus frame) {
+void Vulkan_MultiMeshFeature::BeginShadowPass(FrameStatus frame) {
+    VkCommandBuffer *vkcmdbuf = (VkCommandBuffer *)frame.commandBuffer;
+
+    m_shadowTechnique.BeginPass(*vkcmdbuf, m_swapchain->swapchainExtent, frame.currentImage);
+
+    m_passState = SHADOW_PASS;
+}
+
+void Vulkan_MultiMeshFeature::EndShadowPass(FrameStatus frame) {
+    VkCommandBuffer *vkcmdbuf = (VkCommandBuffer *)frame.commandBuffer;
+
+    m_shadowTechnique.EndPass(*vkcmdbuf);
+}
+
+void Vulkan_MultiMeshFeature::EnableShadows() {
+    m_enableShadows = true;
+
+    m_shadowTechnique.m_width = 1920;
+    m_shadowTechnique.m_height = 1080;
+    m_shadowTechnique.Create(m_renderDevice, m_swapchain);
+}
+
+void Vulkan_MultiMeshFeature::BeginDefaultPass(FrameStatus frame) {
     VkCommandBuffer *vkcmdbuf = (VkCommandBuffer *)frame.commandBuffer;
 
     std::array<VkClearValue, 2> clearValues {};
@@ -499,10 +558,10 @@ void Vulkan_MultiMeshFeature::BeginPass(FrameStatus frame) {
     vkCmdSetViewport(*vkcmdbuf, 0, 1, &viewport);
     vkCmdSetScissor(*vkcmdbuf, 0, 1, &scissor);
 
-    m_pipeline.Bind(*vkcmdbuf);
+    m_passState = DEFAULT_PASS;
 }
 
-void Vulkan_MultiMeshFeature::EndPass(FrameStatus frame) {
+void Vulkan_MultiMeshFeature::EndDefaultPass(FrameStatus frame) {
     VkCommandBuffer *vkcmdbuf = (VkCommandBuffer *)frame.commandBuffer;
 
     vkCmdEndRenderPass(*vkcmdbuf);
@@ -512,22 +571,45 @@ void Vulkan_MultiMeshFeature::DrawEntities(FrameStatus frame, GPU_SceneData *sce
 
     VkCommandBuffer *vkcmdbuf = (VkCommandBuffer *)frame.commandBuffer;
 
-    sceneData->projMat[1][1] *= -1;
+    if (m_passState == DEFAULT_PASS) {
+        m_pipeline.Bind(*vkcmdbuf); 
+        
+        sceneData->projMat[1][1] *= -1;
 
-    UploadBufferData(m_renderDevice, m_uniformBuffersMemory[frame.currentImage], 0, sceneData, sizeof(*sceneData));
+        UploadBufferData(m_renderDevice, m_uniformBuffersMemory[frame.currentImage], 0, sceneData, sizeof(*sceneData));
+    } else if (m_passState == SHADOW_PASS) {
+        m_shadowTechnique.m_offscreenPipeline.Bind(*vkcmdbuf);
+
+        m_shadowTechnique.Update(m_renderDevice, frame.currentImage, glm::vec3(-2.0f, 4.0f, 1.0f));
+        
+        sceneData->lightSpaceMat = m_shadowTechnique.m_lightSpaceMatrix;
+
+    }
+
 
     for (Entity *ent : entities) {
         int modelID = *(int *)ent->model.handle;
         ModelResources &res = m_models[modelID];
 
-        vkCmdBindDescriptorSets(*vkcmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline.pipelineLayout, 0, 1, &res.m_descriptorSets[frame.currentImage], 0, nullptr);
+        if (m_passState == DEFAULT_PASS) {
+            vkCmdBindDescriptorSets(*vkcmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline.pipelineLayout, 0, 1, &res.m_descriptorSets[frame.currentImage], 0, nullptr);
 
-        PushConstantData constants;
-        constants.model = ent->model.localTransform;
+            PushConstantData constants;
+            constants.model = ent->model.localTransform;
 
-        vkCmdPushConstants(*vkcmdbuf, m_pipeline.pipelineLayout,
-                           VK_SHADER_STAGE_VERTEX_BIT,
-                           0, sizeof(PushConstantData), &constants);
+            vkCmdPushConstants(*vkcmdbuf, m_pipeline.pipelineLayout,
+                               VK_SHADER_STAGE_VERTEX_BIT,
+                               0, sizeof(PushConstantData), &constants);
+        } else if (m_passState == SHADOW_PASS) {
+        
+            vkCmdBindDescriptorSets(*vkcmdbuf,
+                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                m_shadowTechnique.m_offscreenPipeline.pipelineLayout,
+                0, 1,
+                &res.m_offscreenDescriptorSets[frame.currentImage],
+                0, nullptr);
+
+        }
 
         size_t offsetMemory = modelID  * sizeof(VkDrawIndirectCommand);
         vkCmdDrawIndirect(*vkcmdbuf, m_indirectBuffers[frame.currentImage], offsetMemory, res.m_maxInstanceCount, sizeof(VkDrawIndirectCommand));

@@ -8,6 +8,10 @@
 
 namespace xjar {
 
+enum Effect_Flags {
+    SHADOWMAPPING = 0 << 1,
+};
+
 class Vulkan_Backend final : public RendererBackend {
 public:
     Vulkan_Backend() = default;
@@ -23,11 +27,8 @@ public:
     void        DrawEntities(FrameStatus frame, GPU_SceneData *sceneData, std::initializer_list<Entity *> entities) override;
     void        DrawGrid(FrameStatus frame, GPU_SceneData *sceneData) override;
     void        ClearColor(FrameStatus frame, f32 r, f32 g, f32 b, f32 a) override;
-    void        BeginMultiMeshFeaturePass(FrameStatus frame) override;
-    void        EndMultiMeshFeaturePass(FrameStatus frame) override;
     void        BeginGridPass(FrameStatus frame) override;
     void        EndGridPass(FrameStatus frame) override;
-
     void        CreateModel(std::vector<InstanceData> &instances,
                     std::vector<MaterialDescr> &materials,
                     const std::vector<std::string> &textureFilenames,
@@ -53,6 +54,7 @@ private:
     VkRenderPass                        m_lastRenderPass;
     std::unique_ptr<Vulkan_Swapchain>   m_swapchain;
     std::vector<VkCommandBuffer>        m_commandBuffers;
+    int                                 m_effects = 0;
     u32                                 m_currentImageIndex;
     i32                                 m_currentFrameIndex = 0;
 };

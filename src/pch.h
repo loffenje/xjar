@@ -20,7 +20,6 @@
 #include <assert.h>
 #include <string.h>
 #include <unordered_set>
-
 #include <glm/glm.hpp>
 #include <glm/vec4.hpp>
 #include <glm/mat4x4.hpp>

@@ -138,9 +138,7 @@ void RenderSystem::LoadMaterials(const char *fileName, std::vector<MaterialDescr
     fclose(f);
 }
 void RenderSystem::DrawEntities(FrameStatus frame, GPU_SceneData *sceneData, std::initializer_list<Entity *> entities) {
-    g_backend->BeginMultiMeshFeaturePass(frame);
     g_backend->DrawEntities(frame, sceneData, entities);
-    g_backend->EndMultiMeshFeaturePass(frame);
 }
 
 void RenderSystem::DrawGrid(FrameStatus frame, GPU_SceneData *sceneData) {

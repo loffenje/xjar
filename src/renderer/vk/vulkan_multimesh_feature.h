@@ -6,16 +6,23 @@
 #include "vulkan_pipeline.h"
 #include "vulkan_ds.h"
 #include "material_descr.h"
+#include "vulkan_shadow_technique.h"
 
 namespace xjar {
 
 struct Vulkan_Swapchain;
 struct Vulkan_RenderDevice;
 
+enum {
+    DEFAULT_PASS = 0,
+    SHADOW_PASS
+};
+
 struct ModelResources {
     std::vector<InstanceData>       m_instances;
     std::vector<MaterialDescr>      m_materials;
     std::vector<VkDescriptorSet>    m_descriptorSets;
+    std::vector<VkDescriptorSet>    m_offscreenDescriptorSets;
 
     u32 m_maxVertexBufferSize, m_maxIndexBufferSize;
     u32 m_maxInstances;
@@ -55,10 +62,17 @@ public:
         const std::vector<std::string> &textureFilenames,
         Model &model);
 
+    void EnableShadows();
     void DrawEntities(FrameStatus frame, GPU_SceneData *sceneData, std::initializer_list<Entity *> entities);
     void OnResize(Vulkan_Swapchain *swapchain);
-    void BeginPass(FrameStatus frame);
-    void EndPass(FrameStatus frame);
+    void BeginDefaultPass(FrameStatus frame);
+    void EndDefaultPass(FrameStatus frame);
+    void BeginShadowPass(FrameStatus frame);
+    void EndShadowPass(FrameStatus frame);
+
+    bool IsShadowsEnabled() const {
+        return m_enableShadows;
+    }
 
     VkRenderPass *GetPass() {
         return &m_renderPass;
@@ -81,16 +95,19 @@ private:
     VkRenderPass         m_renderPass;
     Vulkan_Pipeline      m_pipeline;
     Vulkan_Swapchain    *m_swapchain;
+    Vulkan_ShadowTechnique m_shadowTechnique;
 
     std::vector<DescriptorAllocator> m_dsAllocators;
+    std::vector<DescriptorAllocator> m_offscreenDsAllocators;
+
     VkDescriptorSetLayout           m_dsLayout;
     VkImage        m_depthImage;
     VkImageView    m_depthImageView;
     VkDeviceMemory m_depthImageMemory;
-
     std::vector<VkBuffer>       m_indirectBuffers;
     std::vector<VkDeviceMemory> m_indirectBuffersMemory;
 
+    VkDescriptorPool            m_offscreenDsPool;
     VkSampler                   m_defaultSamplerLinear;
     VkSampler                   m_defaultSamplerNearest;
 
@@ -101,7 +118,8 @@ private:
     u32                         m_modelCount = 0;
     int                         m_instanceCount = 0;
     int                         m_modelID = 0;
-
+    int                         m_passState = DEFAULT_PASS;
+    b32                         m_enableShadows = false;
 };
 
 }

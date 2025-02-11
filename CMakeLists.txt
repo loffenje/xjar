@@ -33,6 +33,7 @@ elseif(RENDERER_BACKEND STREQUAL "Vulkan")
         src/renderer/vk/vulkan_render_device.cpp
         src/renderer/vk/vulkan_multimesh_feature.cpp
         src/renderer/vk/vulkan_grid_feature.cpp
+        src/renderer/vk/vulkan_shadow_technique.cpp
         src/renderer/vk/vulkan_backend.cpp)
 endif()
 
@@ -44,7 +45,7 @@ set(SRCS
     src/renderer/render_system.cpp
     ${RENDERER_SRC})
 
-file(GLOB HEADERS "src/*.h")
+file(GLOB_RECURSE HEADERS "src/*.h")
 
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)

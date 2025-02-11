@@ -52,7 +52,7 @@ public:
     
     virtual void EndMultiMeshFeaturePass(FrameStatus frame) {
     }
-
+    
     virtual ~RendererBackend() = default;
 };
 

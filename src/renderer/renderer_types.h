@@ -20,14 +20,13 @@ struct FrameStatus {
 
     // Vulkan stuff
     void *commandBuffer;
-    void *defaultPass;
-    void *multimeshPass;
     u32   currentImage;
 };
 
 struct GPU_SceneData {
     alignas(16) glm::mat4 viewMat;
     alignas(16)  glm::mat4 projMat;
+    alignas(16) glm::mat4 lightSpaceMat;
     alignas(16)  glm::vec3 viewPos;
 };
 
